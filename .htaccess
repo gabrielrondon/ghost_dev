@@ -1,0 +1,9 @@
+AddType application/javascript .js .mjs .jsx .tsx .ts
+AddType text/javascript .js .mjs .jsx .tsx .ts
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|mjs|jsx|tsx|ts)$">
+        Header set Content-Type "application/javascript"
+        Header set X-Content-Type-Options "nosniff"
+    </FilesMatch>
+</IfModule> 

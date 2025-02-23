@@ -12,7 +12,6 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Content-Type': 'application/javascript',
     },
   },
   build: {
@@ -24,4 +23,7 @@ export default defineConfig({
     },
   },
   assetsInclude: ['**/*.svg'],
+  resolve: {
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
+  },
 });
