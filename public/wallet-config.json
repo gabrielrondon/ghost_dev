@@ -1,0 +1,5 @@
+{
+  "disableInjection": true,
+  "allowedOrigins": [],
+  "walletBehavior": "prompt"
+}

@@ -1,0 +1,23 @@
+type TaskConfig = record {
+    priority: text;
+    execution_delay: nat64;
+    retry_attempts: nat8;
+    disclosure_level: text;
+    storage_type: text;
+};
+
+type Task = record {
+    id: text;
+    description: text;
+    status: text;
+    timestamp: nat64;
+    config: opt TaskConfig;
+};
+
+service : {
+    generate_reference: () -> (text);
+    assign_task: (reference_id: text, description: text, config: opt TaskConfig) -> (opt text);
+    get_tasks: (reference_id: text) -> (opt vec Task) query;
+    execute_tasks: (reference_id: text) -> (opt vec Task);
+    delete_reference: (reference_id: text) -> (bool);
+}

@@ -1,0 +1,13 @@
+type Task = record {
+    id: text;
+    description: text;
+    status: text;
+};
+
+service : {
+    generate_reference: () -> (text);
+    assign_task: (reference_id: text, description: text) -> (opt text);
+    get_tasks: (reference_id: text) -> (opt vec Task) query;
+    execute_tasks: (reference_id: text) -> (opt vec Task);
+    delete_reference: (reference_id: text) -> (bool);
+}

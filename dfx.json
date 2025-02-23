@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "canisters": {
+    "backend": {
+      "type": "rust",
+      "package": "ghost_agent_icp",
+      "candid": "backend/backend.did",
+      "wasm": "target/wasm32-unknown-unknown/release/ghost_agent_icp.wasm",
+      "build": "cargo build --target wasm32-unknown-unknown --release",
+      "dependencies": []
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8000"
+    },
+    "ic": {
+      "providers": [
+        "https://ic0.app"
+      ]
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "cargo"
+    }
+  }
+}
