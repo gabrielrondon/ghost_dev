@@ -12,15 +12,14 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Content-Type': 'application/javascript',
     },
   },
   build: {
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-        },
+        manualChunks: undefined,
       },
     },
   },

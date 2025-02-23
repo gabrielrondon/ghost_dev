@@ -3,6 +3,36 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 
+// Add this at the top of your main.tsx
+declare global {
+  interface Window {
+    solana?: any
+    phantom?: any
+  }
+}
+
+// Modify your wallet initialization to check for existing providers
+function initializeWallets() {
+  if (!window.solana) {
+    Object.defineProperty(window, 'solana', {
+      value: {},
+      configurable: true,
+      writable: true
+    })
+  }
+
+  if (!window.phantom) {
+    Object.defineProperty(window, 'phantom', {
+      value: {},
+      configurable: true,
+      writable: true
+    })
+  }
+}
+
+// Call this before other wallet-related code
+initializeWallets()
+
 // Prevent wallet conflicts
 if (typeof window !== 'undefined') {
   // Create a secure environment
