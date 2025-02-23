@@ -11,74 +11,69 @@ declare global {
   }
 }
 
-// Modify your wallet initialization to check for existing providers
-function initializeWallets() {
-  if (!window.solana) {
-    Object.defineProperty(window, 'solana', {
-      value: {},
-      configurable: true,
-      writable: true
-    })
-  }
+// Create a secure wallet handler
+const secureWalletHandler = {
+  // Store original wallet instances
+  _wallets: new Map(),
 
-  if (!window.phantom) {
-    Object.defineProperty(window, 'phantom', {
-      value: {},
-      configurable: true,
-      writable: true
-    })
+  // Getter for wallet properties
+  getWallet(name: string) {
+    return this._wallets.get(name)
+  },
+
+  // Setter for wallet properties
+  setWallet(name: string, wallet: any) {
+    if (!this._wallets.has(name)) {
+      this._wallets.set(name, wallet)
+    }
+    return true
   }
 }
 
-// Call this before other wallet-related code
-initializeWallets()
+// Initialize secure environment
+function initializeSecureEnvironment() {
+  if (typeof window === 'undefined') return
 
-// Prevent wallet conflicts
-if (typeof window !== 'undefined') {
-  // Create a secure environment
-  try {
-    Object.defineProperty(window, 'isSecureContext', {
-      value: true,
-      writable: false,
-      configurable: false
-    });
-  } catch (e) {
-    console.warn('Could not secure context');
-  }
+  const walletProps = ['solana', 'phantom', 'keplr', 'yoroi']
 
-  // Remove wallet properties
-  const walletProps = ['solana', 'phantom', 'keplr', 'yoroi'];
   walletProps.forEach(prop => {
-    try {
-      if (prop in window) {
-        delete (window as any)[prop];
-        Object.defineProperty(window, prop, {
-          configurable: false,
-          get: () => undefined,
-          set: () => {}
-        });
-      }
-    } catch (e) {
-      console.warn(`Could not secure ${prop} property`);
+    // Store existing wallet if present
+    if ((window as any)[prop]) {
+      secureWalletHandler._wallets.set(prop, (window as any)[prop])
     }
-  });
 
-  // Create a protected namespace for our app
+    try {
+      Object.defineProperty(window, prop, {
+        configurable: true,
+        enumerable: true,
+        get: () => secureWalletHandler.getWallet(prop),
+        set: (value) => secureWalletHandler.setWallet(prop, value)
+      })
+    } catch (e) {
+      console.warn(`Failed to secure ${prop} wallet property`, e)
+    }
+  })
+
+  // Create protected namespace
   const ghostAgent = {
     initialized: true,
-    timestamp: Date.now()
-  };
+    timestamp: Date.now(),
+    secureWalletHandler
+  }
 
   try {
     Object.defineProperty(window, '__ghostAgent', {
       value: ghostAgent,
       writable: false,
       configurable: false
-    });
+    })
   } catch (e) {
-    console.warn('Could not create protected namespace');
+    console.warn('Failed to create protected namespace', e)
   }
 }
+
+// Initialize before rendering
+initializeSecureEnvironment()
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find root element');
