@@ -14,10 +14,27 @@ type Task = record {
     config: opt TaskConfig;
 };
 
+type WalletVerificationRequest = record {
+    wallet_address: text;
+    nft_contract_address: opt text;
+    chain_id: text;
+};
+
+type VerificationResult = record {
+    is_verified: bool;
+    proof_id: text;
+    timestamp: nat64;
+    anonymous_reference: text;
+};
+
 service : {
     generate_reference: () -> (text);
     assign_task: (reference_id: text, description: text, config: opt TaskConfig) -> (opt text);
     get_tasks: (reference_id: text) -> (opt vec Task) query;
     execute_tasks: (reference_id: text) -> (opt vec Task);
     delete_reference: (reference_id: text) -> (bool);
+    
+    // NFT verification endpoints
+    verify_nft_ownership: (request: WalletVerificationRequest) -> (VerificationResult);
+    get_verification_proof: (proof_id: text) -> (opt VerificationResult) query;
 }

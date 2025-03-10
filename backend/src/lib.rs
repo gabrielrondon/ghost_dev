@@ -34,6 +34,21 @@ struct Reference {
     zk_proof: Option<String>,
 }
 
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+struct WalletVerificationRequest {
+    wallet_address: String,
+    nft_contract_address: Option<String>,
+    chain_id: String,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+struct VerificationResult {
+    is_verified: bool,
+    proof_id: String,
+    timestamp: u64,
+    anonymous_reference: String,
+}
+
 impl Storable for Reference {
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
         std::borrow::Cow::Owned(serde_json::to_vec(self).unwrap())
@@ -70,6 +85,15 @@ impl BoundedStorable for StorableString {
 thread_local! {
     static REFERENCES: StableBTreeMap<StorableString, Reference, VirtualMemory<DefaultMemoryImpl>> = 
         StableBTreeMap::new(VirtualMemory::new(DefaultMemoryImpl::default()));
+}
+
+// Storage for verification results
+thread_local! {
+    static VERIFICATION_RESULTS: std::cell::RefCell<StableBTreeMap<StorableString, VerificationResult, VirtualMemory<DefaultMemoryImpl>>> = 
+        std::cell::RefCell::new(StableBTreeMap::init(
+            ic_stable_structures::memory_manager::MemoryManager::init(DefaultMemoryImpl::default())
+                .get(2)
+        ));
 }
 
 #[update]
@@ -263,4 +287,56 @@ async fn execute_on_eth_btc(reference_id: &str) {
         "execute_transaction", 
         (btc_payload,)
     ).await;
+}
+
+#[update]
+fn verify_nft_ownership(request: WalletVerificationRequest) -> VerificationResult {
+    let proof_id = Uuid::new_v4().to_string();
+    let anonymous_reference = Uuid::new_v4().to_string();
+    
+    // In a real implementation, this would make external calls to verify NFT ownership
+    // For now, we'll simulate verification based on the wallet address
+    // This is a placeholder - in production, you would integrate with actual blockchain APIs
+    
+    // Simple simulation: if wallet address starts with "0x", consider it verified
+    let is_verified = request.wallet_address.starts_with("0x");
+    
+    let result = VerificationResult {
+        is_verified,
+        proof_id: proof_id.clone(),
+        timestamp: time(),
+        anonymous_reference,
+    };
+    
+    // Store the verification result
+    VERIFICATION_RESULTS.with(|results| {
+        results.borrow_mut().insert(StorableString(proof_id.clone()), result.clone());
+    });
+    
+    // Create a reference with a task for this verification
+    let reference_id = generate_reference();
+    let task_description = format!(
+        "NFT ownership verification for wallet {} on chain {}",
+        request.wallet_address,
+        request.chain_id
+    );
+    
+    let config = TaskConfig {
+        priority: "high".to_string(),
+        execution_delay: 0,
+        retry_attempts: 3,
+        disclosure_level: "anonymous".to_string(),
+        storage_type: "chain".to_string(),
+    };
+    
+    assign_task(reference_id, task_description, Some(config));
+    
+    result
+}
+
+#[query]
+fn get_verification_proof(proof_id: String) -> Option<VerificationResult> {
+    VERIFICATION_RESULTS.with(|results| {
+        results.borrow().get(&StorableString(proof_id)).cloned()
+    })
 }

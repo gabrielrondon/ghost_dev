@@ -17,6 +17,60 @@ export interface GhostAgentState {
   tasks: Task[];
 }
 
+export type VerifiableItemType = 'nft' | 'token' | 'transaction' | 'governance';
+
+export interface WalletVerificationRequest {
+  walletAddress: string;
+  itemType: VerifiableItemType;
+  itemId?: string; // NFT canisterId-index, token symbol, transaction id, etc.
+  chainId: string;
+  additionalData?: Record<string, any>;
+}
+
+export interface VerificationResult {
+  isVerified: boolean;
+  proofId: string;
+  timestamp: number;
+  anonymousReference: string;
+  walletAddress: string;
+  chainId: string;
+  itemType: VerifiableItemType;
+  itemId?: string;
+  
+  // NFT specific fields
+  nftContractAddress?: string;
+  nftIndex?: number;
+  nftName?: string;
+  nftImageUrl?: string;
+  
+  // Token specific fields
+  tokenSymbol?: string;
+  tokenName?: string;
+  tokenAmount?: number;
+  
+  // Transaction specific fields
+  transactionHash?: string;
+  transactionType?: string;
+  transactionAmount?: number;
+  transactionToken?: string;
+  transactionTimestamp?: number;
+  
+  // Governance specific fields
+  proposalId?: string;
+  voteType?: 'yes' | 'no' | 'abstain';
+  
+  // Internet Computer specific
+  principal?: string;
+}
+
+export interface InternetComputerNft {
+  canisterId: string;
+  index: number;
+  name: string;
+  url?: string;
+  metadata?: any;
+}
+
 export const TASK_SUGGESTIONS = [
   {
     description: "Generate anonymous proof of DAO vote participation",
@@ -84,6 +138,46 @@ export const TASK_SUGGESTIONS = [
       priority: 'high',
       executionDelay: 500,
       retryAttempts: 3,
+      disclosureLevel: 'anonymous',
+      storageType: 'chain'
+    }
+  },
+  {
+    description: "Verify NFT ownership without revealing wallet address",
+    defaultConfig: {
+      priority: 'high',
+      executionDelay: 0,
+      retryAttempts: 3,
+      disclosureLevel: 'anonymous',
+      storageType: 'chain'
+    }
+  },
+  {
+    description: "Verify Internet Computer NFT ownership anonymously",
+    defaultConfig: {
+      priority: 'high',
+      executionDelay: 0,
+      retryAttempts: 3,
+      disclosureLevel: 'anonymous',
+      storageType: 'chain'
+    }
+  },
+  {
+    description: "Verify token balance without revealing wallet address",
+    defaultConfig: {
+      priority: 'high',
+      executionDelay: 0,
+      retryAttempts: 2,
+      disclosureLevel: 'redacted',
+      storageType: 'chain'
+    }
+  },
+  {
+    description: "Prove transaction history without exposing wallet",
+    defaultConfig: {
+      priority: 'medium',
+      executionDelay: 0,
+      retryAttempts: 2,
       disclosureLevel: 'anonymous',
       storageType: 'chain'
     }
