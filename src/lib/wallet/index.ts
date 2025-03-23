@@ -384,36 +384,57 @@ export function isWalletAvailable(name: string): boolean {
 }
 
 export function getCurrentWalletInfo(): WalletInfo | null {
-  // Try to get Plug wallet first
-  const plugWallet = getSecureWallet('plug');
-  if (plugWallet) return plugWallet;
+  // First try to get from secure wallet handler
+  if (window.__ghostAgent?.secureWalletHandler) {
+    const plugWallet = window.__ghostAgent.secureWalletHandler.getWallet('plug');
+    if (plugWallet) return plugWallet;
+    
+    const metamaskWallet = window.__ghostAgent.secureWalletHandler.getWallet('metamask');
+    if (metamaskWallet) return metamaskWallet;
+  }
   
-  // Fall back to MetaMask
-  const metamaskWallet = getSecureWallet('metamask');
-  return metamaskWallet || null;
+  // Then try localStorage
+  const storedWallet = localStorage.getItem('walletInfo');
+  if (storedWallet) {
+    try {
+      return JSON.parse(storedWallet);
+    } catch (error) {
+      console.error('Error parsing stored wallet info:', error);
+    }
+  }
+  
+  // Finally try sessionStorage
+  const sessionWallet = sessionStorage.getItem('walletInfo');
+  if (sessionWallet) {
+    try {
+      return JSON.parse(sessionWallet);
+    } catch (error) {
+      console.error('Error parsing session wallet info:', error);
+    }
+  }
+  
+  return null;
 }
 
 export async function disconnectWallet(): Promise<boolean> {
   try {
-    // Check if we have a Plug wallet connected
-    const plugWallet = getSecureWallet('plug');
-    if (plugWallet && window.ic?.plug) {
+    if (window.ic?.plug) {
       await window.ic.plug.disconnect();
-      if (window.__ghostAgent?.secureWalletHandler) {
-        window.__ghostAgent.secureWalletHandler._wallets.delete('plug');
-      }
-      return true;
     }
     
-    // Fall back to MetaMask
+    // Clear the wallet info from the secure wallet handler
     if (window.__ghostAgent?.secureWalletHandler) {
-      window.__ghostAgent.secureWalletHandler._wallets.delete('metamask');
-      return true;
+      window.__ghostAgent.secureWalletHandler.setWallet('plug', null);
+      window.__ghostAgent.secureWalletHandler.setWallet('metamask', null);
     }
     
-    return false;
+    // Clear any stored wallet info
+    localStorage.removeItem('walletInfo');
+    sessionStorage.removeItem('walletInfo');
+    
+    return true;
   } catch (error) {
-    console.error("Error disconnecting wallet:", error);
+    console.error('Error disconnecting wallet:', error);
     return false;
   }
 } 

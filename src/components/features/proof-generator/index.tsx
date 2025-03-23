@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { Shield, CheckCircle2, XCircle, Loader2, Copy, ExternalLink, Image, Wallet, ArrowUpRight, ArrowDownLeft, Vote, AlertTriangle, RefreshCw } from 'lucide-react'
-import { connectWallet, disconnectWallet, getCurrentWalletInfo, WalletInfo, ICPToken, ICPTransaction } from '../lib/wallet-handler'
-import { verifyNftOwnership, getVerificationProof, getTokensForPrincipal, getTransactionsForPrincipal } from '../api'
-import type { VerificationResult, VerifiableItemType } from '../types'
+import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet'
+import { verifyNftOwnership, getVerificationProof } from '@/services/api'
+import type { VerificationResult, VerifiableItemType } from '@/types/proof'
 import toast from 'react-hot-toast'
 
-function NftVerification() {
-  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null)
-  const [isConnecting, setIsConnecting] = useState(false)
+interface ProofGeneratorProps {
+  walletInfo: WalletInfo | null
+  isConnecting: boolean
+  onConnect: () => Promise<void>
+  onDisconnect: () => Promise<void>
+  onRefreshData: (principal: string) => Promise<void>
+}
+
+function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onRefreshData }: ProofGeneratorProps) {
   const [selectedItemType, setSelectedItemType] = useState<VerifiableItemType>('nft')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
@@ -20,35 +26,16 @@ function NftVerification() {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
-    // Check if wallet is already connected
-    const currentWallet = getCurrentWalletInfo()
-    if (currentWallet) {
-      setWalletInfo(currentWallet)
-      if (currentWallet.principal) {
-        fetchUserData(currentWallet.principal)
-      }
+    if (walletInfo?.principal) {
+      fetchUserData(walletInfo.principal)
     }
-  }, [])
+  }, [walletInfo?.principal])
 
   async function fetchUserData(principal: string) {
     setIsLoadingData(true)
     setConnectionError(null)
     try {
-      // Tokens and transactions might not be in the wallet info
-      // so we fetch them separately
-      const [tokensData, transactionsData] = await Promise.all([
-        getTokensForPrincipal(principal),
-        getTransactionsForPrincipal(principal)
-      ])
-      
-      setTokens(tokensData)
-      setTransactions(transactionsData)
-      
-      // Log the data for debugging
-      console.log('Fetched tokens:', tokensData)
-      console.log('Fetched transactions:', transactionsData)
-      console.log('Wallet NFTs:', walletInfo?.nfts)
-      
+      await onRefreshData(principal)
     } catch (error) {
       console.error('Failed to fetch user data:', error)
       setConnectionError('Failed to load wallet data. Please try again.')
@@ -58,40 +45,28 @@ function NftVerification() {
   }
 
   async function handleConnectWallet() {
-    setIsConnecting(true)
     setConnectionError(null)
     try {
-      const wallet = await connectWallet('internetComputer')
-      
-      if (!wallet) {
-        setConnectionError('Failed to connect wallet. Please make sure you have the Plug wallet extension installed.')
-        return
-      }
-      
-      setWalletInfo(wallet)
-      
-      if (wallet?.principal) {
-        fetchUserData(wallet.principal)
-      } else {
-        setConnectionError('Connected wallet does not have a principal ID. Please try again.')
-      }
+      await onConnect()
     } catch (error) {
       console.error('Failed to connect wallet:', error)
       setConnectionError(`Failed to connect wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsConnecting(false)
+      toast.error('Failed to connect wallet')
     }
   }
 
   async function handleDisconnectWallet() {
-    const success = await disconnectWallet()
-    if (success) {
-      setWalletInfo(null)
+    try {
+      await onDisconnect()
       setVerificationResult(null)
       setSelectedItemId(null)
+      setSelectedItemType('nft')
       setTokens([])
       setTransactions([])
       setConnectionError(null)
+    } catch (error) {
+      console.error('Failed to disconnect:', error)
+      toast.error('Failed to disconnect wallet')
     }
   }
 
@@ -395,34 +370,97 @@ function NftVerification() {
         </p>
         
         {!walletInfo ? (
-          <>
-            <button
-              onClick={handleConnectWallet}
-              disabled={isConnecting}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center"
-            >
-              {isConnecting ? (
-                <>
-                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                  Connecting to Internet Computer...
-                </>
-              ) : (
-                'Connect Internet Computer Wallet'
-              )}
-            </button>
-            
-            {connectionError && (
-              <div className="mt-4 p-3 bg-red-900/20 border border-red-800 rounded-md">
-                <p className="text-red-300 text-sm">{connectionError}</p>
+          <div className="space-y-6">
+            <div className="text-center">
+              <h3 className="text-xl font-semibold mb-2">Welcome to Ghost Agent</h3>
+              <p className="text-gray-400 mb-4">
+                Generate zero-knowledge proofs of your on-chain activity while maintaining your privacy.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
+                <div className="flex items-center mb-3">
+                  <Shield className="h-5 w-5 text-purple-400 mr-2" />
+                  <h4 className="font-medium">Privacy-First</h4>
+                </div>
+                <p className="text-sm text-gray-400">
+                  Prove your on-chain activity without revealing your wallet address or personal information.
+                </p>
               </div>
-            )}
-            
-            <div className="mt-4 p-3 bg-gray-700 rounded-md">
-              <p className="text-sm text-gray-400">
+
+              <div className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
+                <div className="flex items-center mb-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-400 mr-2" />
+                  <h4 className="font-medium">Verifiable</h4>
+                </div>
+                <p className="text-sm text-gray-400">
+                  All proofs are cryptographically verified and can be independently validated.
+                </p>
+              </div>
+
+              <div className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
+                <div className="flex items-center mb-3">
+                  <Wallet className="h-5 w-5 text-blue-400 mr-2" />
+                  <h4 className="font-medium">Multi-Chain</h4>
+                </div>
+                <p className="text-sm text-gray-400">
+                  Support for NFTs, tokens, and transactions across multiple blockchain networks.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-700/30 rounded-lg p-6 border border-gray-600">
+              <h4 className="font-medium mb-3">How It Works</h4>
+              <ol className="space-y-3 text-sm text-gray-400">
+                <li className="flex items-start">
+                  <span className="flex-shrink-0 w-6 h-6 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center mr-2">1</span>
+                  Connect your Internet Computer wallet
+                </li>
+                <li className="flex items-start">
+                  <span className="flex-shrink-0 w-6 h-6 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center mr-2">2</span>
+                  Select the type of proof you want to generate (NFT, token, transaction)
+                </li>
+                <li className="flex items-start">
+                  <span className="flex-shrink-0 w-6 h-6 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center mr-2">3</span>
+                  Choose the specific item you want to verify
+                </li>
+                <li className="flex items-start">
+                  <span className="flex-shrink-0 w-6 h-6 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center mr-2">4</span>
+                  Generate your zero-knowledge proof
+                </li>
+              </ol>
+            </div>
+
+            <div className="text-center">
+              <button
+                onClick={handleConnectWallet}
+                disabled={isConnecting}
+                className="w-full max-w-md bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-md flex items-center justify-center mx-auto"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                    Connecting to Internet Computer...
+                  </>
+                ) : (
+                  'Connect Internet Computer Wallet'
+                )}
+              </button>
+              
+              {connectionError && (
+                <div className="mt-4 p-3 bg-red-900/20 border border-red-800 rounded-md max-w-md mx-auto">
+                  <p className="text-red-300 text-sm">{connectionError}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 p-4 bg-gray-700/20 rounded-md border border-gray-600">
+              <p className="text-sm text-gray-400 text-center">
                 <strong>Note:</strong> For testing purposes, the system will load sample data if you don't have any NFTs, tokens, or transactions.
               </p>
             </div>
-          </>
+          </div>
         ) : (
           <div className="bg-gray-700 p-4 rounded-md mb-4">
             <div className="flex justify-between items-center">
@@ -748,4 +786,4 @@ function NftVerification() {
   )
 }
 
-export { NftVerification } 
+export { ProofGenerator } 

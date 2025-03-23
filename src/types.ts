@@ -12,6 +12,13 @@ export interface Task {
   };
 }
 
+export interface WalletInfo {
+  address: string;
+  chainId: string;
+  chainName: string;
+  isConnected: boolean;
+}
+
 export interface GhostAgentState {
   referenceId: string | null;
   tasks: Task[];

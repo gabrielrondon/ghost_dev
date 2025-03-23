@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Task, WalletVerificationRequest, VerificationResult, InternetComputerNft, VerifiableItemType } from './types';
-import { ICPToken, ICPTransaction } from './lib/wallet-handler';
+import type { Task, WalletVerificationRequest, VerificationResult, InternetComputerNft, VerifiableItemType, WalletInfo } from '@/types';
+import type { ICPToken, ICPTransaction } from '@/lib/wallet';
 
 // Mock storage to persist data during development
 const mockStorage = new Map<string, Task[]>();
@@ -424,6 +424,31 @@ async function getTokensForPrincipal(principal: string): Promise<ICPToken[]> {
 async function getTransactionsForPrincipal(principal: string): Promise<ICPTransaction[]> {
     await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
     return mockIcpTransactions.get(principal) || sampleTransactions; // Return sample transactions for testing
+}
+
+// Wallet Connection Functions
+export async function connectWallet(chain: string): Promise<WalletInfo | null> {
+  await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
+  return {
+    address: 'principal-123',
+    chainId: 'icp',
+    chainName: 'Internet Computer',
+    isConnected: true
+  };
+}
+
+export async function disconnectWallet(): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
+}
+
+export async function getCurrentWalletInfo(): Promise<WalletInfo | null> {
+  await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
+  return {
+    address: 'principal-123',
+    chainId: 'icp',
+    chainName: 'Internet Computer',
+    isConnected: true
+  };
 }
 
 export { 
