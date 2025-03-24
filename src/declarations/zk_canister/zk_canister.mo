@@ -1,39 +1,37 @@
-import Principal "mo:base/Principal";
 import Blob "mo:base/Blob";
-import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
-import Error "mo:base/Error";
-
-// Types
-type ICPAttestationInput = {
-    collection_id: Nat64;
-    token_id: Nat64;
-    token_canister_id: Nat64;
-    minimum_balance: Nat64;
-    merkle_root: Nat64;
-    wallet_principal: Nat64;
-    nft_merkle_path: [Nat64];
-    nft_merkle_indices: [Nat8];
-    token_merkle_path: [Nat64];
-    token_merkle_indices: [Nat8];
-    actual_balance: Nat64;
-};
-
-type VerificationResult = {
-    is_valid: Bool;
-    proof: [Nat8];
-    public_inputs: [Nat64];
-};
+import Nat64 "mo:base/Nat64";
+import Nat8 "mo:base/Nat8";
 
 actor ZKCanister {
+    // Types
+    type ICPAttestationInput = {
+        collection_id: Nat64;
+        token_id: Nat64;
+        token_canister_id: Nat64;
+        minimum_balance: Nat64;
+        merkle_root: Nat64;
+        wallet_principal: Nat64;
+        nft_merkle_path: [Nat64];
+        nft_merkle_indices: [Nat8];
+        token_merkle_path: [Nat64];
+        token_merkle_indices: [Nat8];
+        actual_balance: Nat64;
+    };
+
+    type VerificationResult = {
+        is_valid: Bool;
+        proof: [Nat8];
+        public_inputs: [Nat64];
+    };
+    
     // Store the compiled Noir circuit
-    private let circuit: Blob = ""; // TODO: Load the compiled circuit
+    private let _circuit: Blob = ""; // TODO: Load the compiled circuit
     
     // Store the proving key
-    private let proving_key: Blob = ""; // TODO: Load the proving key
+    private let _proving_key: Blob = ""; // TODO: Load the proving key
     
     // Store the verification key
-    private let verification_key: Blob = ""; // TODO: Load the verification key
+    private let _verification_key: Blob = ""; // TODO: Load the verification key
     
     // Generate a proof for an ICP attestation
     public func generate_proof(input: ICPAttestationInput) : async VerificationResult {
@@ -59,7 +57,7 @@ actor ZKCanister {
     };
     
     // Verify a proof
-    public func verify_proof(proof: [Nat8], public_inputs: [Nat64]) : async Bool {
+    public func verify_proof(_proof: [Nat8], _public_inputs: [Nat64]) : async Bool {
         // TODO: Implement proof verification using the Noir circuit
         // This will involve:
         // 1. Using the verification key to verify the proof
@@ -78,13 +76,13 @@ actor ZKCanister {
     };
     
     // Helper function to convert Nat64 to Field (for the circuit)
-    private func nat64_to_field(n: Nat64) : Nat64 {
+    private func _nat64_to_field(n: Nat64) : Nat64 {
         // TODO: Implement proper conversion
         n
     };
     
     // Helper function to convert Field to Nat64 (from the circuit)
-    private func field_to_nat64(f: Nat64) : Nat64 {
+    private func _field_to_nat64(f: Nat64) : Nat64 {
         // TODO: Implement proper conversion
         f
     };

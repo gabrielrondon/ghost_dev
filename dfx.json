@@ -1,35 +1,26 @@
 {
   "version": 1,
   "canisters": {
-    "backend": {
-      "type": "rust",
-      "package": "ghost_agent_icp",
-      "candid": "backend/backend.did",
-      "wasm": "target/wasm32-unknown-unknown/release/ghost_agent_icp.wasm",
-      "build": "cargo build --target wasm32-unknown-unknown --release",
-      "dependencies": []
-    },
     "zk_canister": {
       "main": "src/declarations/zk_canister/zk_canister.mo",
       "type": "motoko",
       "dependencies": []
+    },
+    "main_canister": {
+      "main": "src/declarations/main_canister/main.mo",
+      "type": "motoko",
+      "dependencies": ["zk_canister"]
     }
   },
   "networks": {
     "local": {
       "bind": "127.0.0.1:8000",
-      "type": "ephemeral",
-      "providers": ["http://127.0.0.1:8000"]
+      "type": "ephemeral"
     },
     "ic": {
       "providers": [
         "https://ic0.app"
       ]
-    }
-  },
-  "defaults": {
-    "build": {
-      "packtool": "cargo"
     }
   }
 }
