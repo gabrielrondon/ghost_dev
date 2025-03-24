@@ -1,0 +1,47 @@
+type ICPAttestationInput = record {
+    collection_id: nat64;
+    token_id: nat64;
+    token_canister_id: nat64;
+    minimum_balance: nat64;
+    merkle_root: nat64;
+    wallet_principal: nat64;
+    nft_merkle_path: vec nat64;
+    nft_merkle_indices: vec nat8;
+    token_merkle_path: vec nat64;
+    token_merkle_indices: vec nat8;
+    actual_balance: nat64;
+};
+
+type VerificationResult = record {
+    is_valid: bool;
+    proof: vec nat8;
+    public_inputs: vec nat64;
+};
+
+type VerifyInput = record {
+    collection_id: nat64;
+    token_id: nat64;
+    token_canister_id: nat64;
+    minimum_balance: nat64;
+    merkle_root: nat64;
+    wallet_principal: nat64;
+    nft_merkle_path: vec nat64;
+    nft_merkle_indices: vec nat8;
+    token_merkle_path: vec nat64;
+    token_merkle_indices: vec nat8;
+    actual_balance: nat64;
+};
+
+service : {
+    // Generate a proof for an ICP attestation
+    generate_proof: (ICPAttestationInput) -> (VerificationResult);
+    
+    // Verify a proof
+    verify_proof: (vec nat8, vec nat64) -> (bool);
+    
+    // Get the circuit's public parameters
+    get_circuit_params: () -> (vec nat8);
+
+    verify_attestation: (VerifyInput) -> (bool) query;
+    get_canister_principal: () -> (principal) query;
+} 

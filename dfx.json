@@ -8,11 +8,18 @@
       "wasm": "target/wasm32-unknown-unknown/release/ghost_agent_icp.wasm",
       "build": "cargo build --target wasm32-unknown-unknown --release",
       "dependencies": []
+    },
+    "zk_canister": {
+      "main": "src/declarations/zk_canister/zk_canister.mo",
+      "type": "motoko",
+      "dependencies": []
     }
   },
   "networks": {
     "local": {
-      "bind": "127.0.0.1:8000"
+      "bind": "127.0.0.1:8000",
+      "type": "ephemeral",
+      "providers": ["http://127.0.0.1:8000"]
     },
     "ic": {
       "providers": [
