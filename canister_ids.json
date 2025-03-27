@@ -1,4 +1,7 @@
 {
+  "main_canister": {
+    "ic": "hp6ha-baaaa-aaaad-aaloq-cai"
+  },
   "zk_canister": {
     "ic": "hi7bu-myaaa-aaaad-aaloa-cai"
   }

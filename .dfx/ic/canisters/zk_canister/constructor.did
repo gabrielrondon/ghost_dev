@@ -1,0 +1,25 @@
+type VerificationResult = 
+ record {
+   is_valid: bool;
+   proof: vec nat8;
+   public_inputs: vec nat64;
+ };
+type ICPAttestationInput = 
+ record {
+   actual_balance: nat64;
+   collection_id: nat64;
+   merkle_root: nat64;
+   minimum_balance: nat64;
+   nft_merkle_indices: vec nat8;
+   nft_merkle_path: vec nat64;
+   token_canister_id: nat64;
+   token_id: nat64;
+   token_merkle_indices: vec nat8;
+   token_merkle_path: vec nat64;
+   wallet_principal: nat64;
+ };
+service : {
+  generate_proof: (ICPAttestationInput) -> (VerificationResult);
+  get_circuit_params: () -> (vec nat8);
+  verify_proof: (vec nat8, vec nat64) -> (bool);
+}
