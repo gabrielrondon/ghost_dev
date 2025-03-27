@@ -1,0 +1,10 @@
+/Users/gabrielrondon/icp/ghost_dev/backend/target/debug/deps/libstacker-33734600fc4a2c94.rmeta: /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/lib.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/backends/mod.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/backends/macos.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/mmap_stack_restore_guard.rs
+
+/Users/gabrielrondon/icp/ghost_dev/backend/target/debug/deps/libstacker-33734600fc4a2c94.rlib: /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/lib.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/backends/mod.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/backends/macos.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/mmap_stack_restore_guard.rs
+
+/Users/gabrielrondon/icp/ghost_dev/backend/target/debug/deps/stacker-33734600fc4a2c94.d: /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/lib.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/backends/mod.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/backends/macos.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/mmap_stack_restore_guard.rs
+
+/Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/lib.rs:
+/Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/backends/mod.rs:
+/Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/backends/macos.rs:
+/Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stacker-0.1.20/src/mmap_stack_restore_guard.rs:

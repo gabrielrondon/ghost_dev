@@ -1,0 +1,8 @@
+/Users/gabrielrondon/icp/ghost_dev/backend/target/debug/deps/liblazy_static-1aeb9db168d7b88d.rmeta: /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/lazy_static-1.5.0/src/lib.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/lazy_static-1.5.0/src/inline_lazy.rs
+
+/Users/gabrielrondon/icp/ghost_dev/backend/target/debug/deps/liblazy_static-1aeb9db168d7b88d.rlib: /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/lazy_static-1.5.0/src/lib.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/lazy_static-1.5.0/src/inline_lazy.rs
+
+/Users/gabrielrondon/icp/ghost_dev/backend/target/debug/deps/lazy_static-1aeb9db168d7b88d.d: /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/lazy_static-1.5.0/src/lib.rs /Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/lazy_static-1.5.0/src/inline_lazy.rs
+
+/Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/lazy_static-1.5.0/src/lib.rs:
+/Users/gabrielrondon/.cargo/registry/src/index.crates.io-6f17d22bba15001f/lazy_static-1.5.0/src/inline_lazy.rs:

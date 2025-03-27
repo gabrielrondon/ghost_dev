@@ -1,6 +1,10 @@
 import Blob "mo:base/Blob";
 import Nat64 "mo:base/Nat64";
 import Nat8 "mo:base/Nat8";
+import Error "mo:base/Error";
+import File "mo:base/File";
+import Debug "mo:base/Debug";
+import { throwError } from "./errors";
 
 actor ZKCanister {
     // Types
@@ -24,24 +28,63 @@ actor ZKCanister {
         public_inputs: [Nat64];
     };
     
+    // Circuit and key loading
+    private func loadFile(path: Text) : Blob {
+        try {
+            let contents = File.read(path);
+            switch contents {
+                case (?data) data;
+                case null {
+                    Debug.print("Failed to load file: " # path);
+                    throwError(#LoadError("Failed to load file: " # path));
+                    Blob.fromArray([]);
+                };
+            };
+        } catch (e) {
+            Debug.print("Error loading file: " # Error.message(e));
+            throwError(#LoadError("Error loading file: " # Error.message(e)));
+            Blob.fromArray([]);
+        };
+    };
+    
     // Store the compiled Noir circuit
-    private let _circuit: Blob = ""; // TODO: Load the compiled circuit
+    private let _circuit: Blob = loadFile("circuits/build/circuit.r1cs");
     
     // Store the proving key
-    private let _proving_key: Blob = ""; // TODO: Load the proving key
+    private let _proving_key: Blob = loadFile("circuits/build/proving_key.json");
     
     // Store the verification key
-    private let _verification_key: Blob = ""; // TODO: Load the verification key
+    private let _verification_key: Blob = loadFile("circuits/build/verification_key.json");
     
+    // Initialize circuit and keys
+    private func initializeCircuit() : async Bool {
+        if (Blob.toArray(_circuit).size() == 0) {
+            Debug.print("Circuit not loaded properly");
+            return false;
+        };
+        
+        if (Blob.toArray(_proving_key).size() == 0) {
+            Debug.print("Proving key not loaded properly");
+            return false;
+        };
+        
+        if (Blob.toArray(_verification_key).size() == 0) {
+            Debug.print("Verification key not loaded properly");
+            return false;
+        };
+        
+        true
+    };
+
     // Generate a proof for an ICP attestation
     public func generate_proof(input: ICPAttestationInput) : async VerificationResult {
-        // TODO: Implement proof generation using the Noir circuit
-        // This will involve:
-        // 1. Converting the input to the format expected by the circuit
-        // 2. Using the proving key to generate the proof
-        // 3. Extracting the public inputs
-        // 4. Returning the result
+        // Ensure circuit and keys are loaded
+        let initialized = await initializeCircuit();
+        if (not initialized) {
+            throwError(#InitializationError("Circuit or keys not loaded properly"));
+        };
         
+        // TODO: Implement actual proof generation using the Noir circuit
         // For now, return a mock result
         {
             is_valid = true;
