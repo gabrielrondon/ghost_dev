@@ -5,6 +5,8 @@ import Error "mo:base/Error";
 import File "mo:base/File";
 import Debug "mo:base/Debug";
 import { throwError } from "./errors";
+import NoirProver "mo:noir-prover/NoirProver";
+import NoirVerifier "mo:noir-verifier/NoirVerifier";
 
 actor ZKCanister {
     // Types
@@ -84,31 +86,59 @@ actor ZKCanister {
             throwError(#InitializationError("Circuit or keys not loaded properly"));
         };
         
-        // TODO: Implement actual proof generation using the Noir circuit
-        // For now, return a mock result
-        {
-            is_valid = true;
-            proof = [];
-            public_inputs = [
-                input.collection_id,
-                input.token_id,
-                input.token_canister_id,
-                input.minimum_balance,
-                input.merkle_root
-            ];
-        }
+        try {
+            // Convert input to circuit format
+            let circuit_inputs = {
+                collection_id = _nat64_to_field(input.collection_id);
+                token_id = _nat64_to_field(input.token_id);
+                token_canister_id = _nat64_to_field(input.token_canister_id);
+                minimum_balance = _nat64_to_field(input.minimum_balance);
+                merkle_root = _nat64_to_field(input.merkle_root);
+                wallet_principal = _nat64_to_field(input.wallet_principal);
+                actual_balance = _nat64_to_field(input.actual_balance);
+            };
+
+            // Generate proof using Noir circuit
+            let proof_result = await NoirProver.prove(_circuit, _proving_key, circuit_inputs);
+            
+            {
+                is_valid = proof_result.success;
+                proof = proof_result.proof;
+                public_inputs = [
+                    input.collection_id,
+                    input.token_id,
+                    input.token_canister_id,
+                    input.minimum_balance,
+                    input.merkle_root
+                ];
+            }
+        } catch (e) {
+            Debug.print("Error generating proof: " # Error.message(e));
+            throwError(#ProofGenerationError("Failed to generate proof"));
+        };
     };
     
     // Verify a proof
-    public func verify_proof(_proof: [Nat8], _public_inputs: [Nat64]) : async Bool {
-        // TODO: Implement proof verification using the Noir circuit
-        // This will involve:
-        // 1. Using the verification key to verify the proof
-        // 2. Checking the public inputs
-        // 3. Returning the verification result
+    public func verify_proof(proof: [Nat8], public_inputs: [Nat64]) : async Bool {
+        // Ensure circuit and keys are loaded
+        let initialized = await initializeCircuit();
+        if (not initialized) {
+            throwError(#InitializationError("Circuit or keys not loaded properly"));
+        };
         
-        // For now, return true
-        true
+        try {
+            // Verify the proof using Noir verifier
+            let verification_result = await NoirVerifier.verify(
+                _verification_key,
+                proof,
+                public_inputs
+            );
+            
+            verification_result
+        } catch (e) {
+            Debug.print("Error verifying proof: " # Error.message(e));
+            throwError(#ProofVerificationError("Failed to verify proof"));
+        };
     };
     
     // Get the circuit's public parameters
