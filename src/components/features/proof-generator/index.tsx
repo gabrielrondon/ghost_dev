@@ -53,6 +53,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [debugInfo, setDebugInfo] = useState<DebugInfo>({})
+  const [walletError, setWalletError] = useState<string | null>(null)
 
   useEffect(() => {
     if (walletInfo?.principal) {
@@ -110,22 +111,44 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
     }
   }
 
+  // Function to check if the wallet is connected
+  const checkWalletConnection = async () => {
+    // Check if Plug wallet is installed
+    if (!('ic' in window && 'plug' in (window as any).ic)) {
+      setWalletError('Plug wallet not detected. Please install the Plug wallet extension.');
+      return false;
+    }
+
+    try {
+      // Type assertion to safely access Plug wallet
+      const plug = (window as any).ic.plug;
+      
+      // Check if connected using isConnected method if available
+      if (typeof plug.isConnected === 'function') {
+        const connected = await plug.isConnected();
+        return connected;
+      } else {
+        // Fallback to requestConnect with a timeout
+        const connected = await plug.requestConnect({
+          whitelist: [import.meta.env.VITE_ZK_CANISTER_ID],
+          timeout: 5000
+        });
+        return connected;
+      }
+    } catch (error) {
+      console.error('Error checking wallet connection:', error);
+      setWalletError('Error connecting to wallet. Please try again.');
+      return false;
+    }
+  };
+
   async function handleCheckWalletDirectly() {
     setIsRefreshing(true);
     try {
-      if (!window.ic?.plug) {
-        toast.error('Plug wallet not detected');
-        return;
-      }
-      
-      // Try to refresh the connection
-      const isConnected = await window.ic.plug.isConnected();
+      const isConnected = await checkWalletConnection();
       if (!isConnected) {
-        const connected = await window.ic.plug.requestConnect();
-        if (!connected) {
-          toast.error('Failed to connect to Plug wallet');
-          return;
-        }
+        toast.error('Failed to connect to Plug wallet');
+        return;
       }
       
       // Try to get NFTs directly

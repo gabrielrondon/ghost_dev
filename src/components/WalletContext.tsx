@@ -38,7 +38,7 @@ const MOCK_TOKENS: ICPToken[] = [
 // Determine if we're in development mode
 const isDev = import.meta.env.DEV === true;
 
-interface WalletContextType {
+export interface WalletContextType {
   isConnected: boolean;
   isConnecting: boolean;
   connect: () => Promise<any>;
