@@ -20,6 +20,94 @@ This milestone implements a canister-based Zero-Knowledge Proof (ZKP) system for
    - Proof generation requests
    - Anonymous reference handling
 
+## System Architecture
+
+### 1. NFT Verification Flow
+```plantuml
+@startuml
+participant "Frontend" as FE
+participant "Plug Wallet" as PW
+participant "Main Canister" as MC
+participant "ZK Canister" as ZK
+participant "NFT Canister" as NFT
+
+FE -> PW: Connect Wallet
+activate PW
+PW --> FE: Return Principal ID
+deactivate PW
+
+FE -> PW: Request NFT List
+activate PW
+PW -> NFT: Query NFTs
+NFT --> PW: Return NFT Data
+PW --> FE: Return NFT List
+deactivate PW
+
+FE -> MC: Request Verification
+activate MC
+MC -> NFT: Verify Ownership
+NFT --> MC: Confirm Ownership
+MC -> ZK: Generate Proof
+activate ZK
+ZK -> ZK: Create Merkle Tree
+ZK -> ZK: Generate ZK Proof
+ZK --> MC: Return Proof
+deactivate ZK
+MC --> FE: Return Anonymous Reference
+deactivate MC
+@enduml
+```
+
+### 2. Proof Verification Flow
+```plantuml
+@startuml
+participant "Verifier" as V
+participant "Frontend" as FE
+participant "Main Canister" as MC
+participant "ZK Canister" as ZK
+
+V -> FE: Submit Anonymous Reference
+activate FE
+FE -> MC: Request Verification
+activate MC
+MC -> ZK: Verify Proof
+activate ZK
+ZK -> ZK: Check Merkle Path
+ZK -> ZK: Verify ZK Proof
+ZK --> MC: Verification Result
+deactivate ZK
+MC --> FE: Return Result
+deactivate MC
+FE --> V: Display Verification Status
+deactivate FE
+@enduml
+```
+
+### 3. System Update Flow
+```plantuml
+@startuml
+participant "Developer" as DEV
+participant "IC Network" as IC
+participant "Main Canister" as MC
+participant "ZK Canister" as ZK
+
+DEV -> IC: Deploy Update (dfx deploy --network ic)
+activate IC
+IC -> MC: Update Wasm Module
+note right: Canister ID remains same
+IC -> ZK: Update Wasm Module
+note right: Canister ID remains same
+IC --> DEV: Deployment Complete
+deactivate IC
+
+DEV -> MC: Verify Status
+MC --> DEV: Return Updated Version
+
+DEV -> ZK: Verify Status
+ZK --> DEV: Return Updated Version
+@enduml
+```
+
 ## Testing Methods
 
 ### 1. Frontend Testing
