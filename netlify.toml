@@ -3,7 +3,7 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20.11.1"
   VITE_MAIN_CANISTER_ID = "hp6ha-baaaa-aaaad-aaloq-cai"
   VITE_ZK_CANISTER_ID = "hi7bu-myaaa-aaaad-aaloa-cai"
   VITE_IC_HOST = "https://icp0.io"
@@ -17,11 +17,11 @@
 [[headers]]
   for = "/*"
   [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
     X-Frame-Options = "DENY"
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self' https://ic0.app https://icp0.io; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://ic0.app https://icp0.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://ic0.app https://*.ic0.app https://icp0.io https://*.icp0.io https://*.plugwallet.ooo https://mainnet.plugwallet.ooo wss: blob:;"
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With" 
+    Content-Security-Policy = "default-src 'self' https://ic0.app https://icp0.io; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://ic0.app https://icp0.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://ic0.app https://*.ic0.app https://icp0.io https://*.icp0.io https://*.plugwallet.ooo https://mainnet.plugwallet.ooo wss: blob:;" 
