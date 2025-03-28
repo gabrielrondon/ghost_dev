@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet';
 import toast from 'react-hot-toast';
+import { getICPTokenData, ICP_LEDGER_CANISTER_ID } from '@/services/ledger';
 
 interface WalletContextType {
   walletInfo: WalletInfo | null;
@@ -41,9 +42,6 @@ const MOCK_TOKENS: ICPToken[] = [
     decimals: 8
   }
 ];
-
-// The ledger canister ID for ICP token on mainnet
-const ICP_LEDGER_CANISTER_ID = "ryjl3-tyaaa-aaaaa-aaaba-cai";
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
@@ -172,8 +170,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         // Try to fetch token balances using the Plug wallet API
         let usingMockTokens = false;
         try {
-          if (typeof window.ic.plug.getBalance === 'function') {
-            const balances = await window.ic.plug.getBalance();
+          // Check if getBalance exists before calling it
+          if (typeof (window.ic.plug as any).getBalance === 'function') {
+            const balances = await (window.ic.plug as any).getBalance();
             
             if (balances && Array.isArray(balances)) {
               tokens = balances.map(balance => ({
@@ -195,23 +194,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           
           // Try to fetch ICP balance directly from the ledger canister
           try {
-            // In a real implementation, we would call the ledger canister here
-            // For now, we'll add a default ICP token as a fallback
+            console.log('Attempting to fetch balance directly from ICP ledger canister...');
             
-            // Add a default ICP token since we couldn't get the real balance
-            tokens = [
-              {
-                id: 'icp-1',
-                symbol: 'ICP',
-                name: 'Internet Computer',
-                balance: '100000000', // 1 ICP in e8s as placeholder
-                amount: '1',
-                decimals: 8
-              }
-            ];
+            // Create an agent for the ledger
+            if (!window.ic.plug.agent) {
+              await window.ic.plug.createAgent({ 
+                whitelist: [ICP_LEDGER_CANISTER_ID], 
+                host: import.meta.env.VITE_IC_HOST || 'https://icp0.io'
+              });
+            }
             
-            usingMockTokens = true;
-            toast.error('Using placeholder token balance - could not fetch real balance');
+            // Get real ICP token data from the ledger
+            const icpToken = await getICPTokenData(principalText);
+            tokens = [icpToken];
+            
+            console.log('Successfully fetched ICP balance from ledger:', icpToken);
+            toast.success('Successfully connected to your wallet');
           } catch (ledgerError) {
             console.error('Failed to fetch balance from ledger:', ledgerError);
             
@@ -264,10 +262,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                   <div className="flex items-start">
                     <div className="ml-3 flex-1">
                       <p className="text-sm font-medium text-yellow-200">
-                        Using mock token data
+                        {isDev ? 'Using mock token data' : 'Limited wallet functionality'}
                       </p>
                       <p className="mt-1 text-sm text-yellow-300">
-                        We couldn't fetch your real token balances. The tokens you see are for testing purposes only.
+                        {isDev
+                          ? "We couldn't fetch your real token balances. The tokens you see are for testing purposes only."
+                          : "Your wallet version has limited functionality. We're showing estimated balances. For full features, please update your Plug wallet."}
                       </p>
                     </div>
                   </div>
