@@ -21,4 +21,7 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self' https://ic0.app https://icp0.io; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://ic0.app https://icp0.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://ic0.app https://*.ic0.app https://icp0.io https://*.icp0.io;" 
+    Content-Security-Policy = "default-src 'self' https://ic0.app https://icp0.io; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://ic0.app https://icp0.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://ic0.app https://*.ic0.app https://icp0.io https://*.icp0.io https://*.plugwallet.ooo https://mainnet.plugwallet.ooo wss: blob:;"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With" 

@@ -8,7 +8,8 @@ export default defineConfig({
     exclude: [
       'lucide-react', 
       '@dfinity/ledger-icp',
-      '@dfinity/utils'
+      '@dfinity/utils',
+      'artemis-web3-adapter'
     ],
   },
   server: {
@@ -94,7 +95,7 @@ export default defineConfig({
         },
       },
       // Mark problematic dependencies as external
-      external: ['@dfinity/ledger-icp', '@dfinity/utils']
+      external: ['@dfinity/ledger-icp', '@dfinity/utils', 'artemis-web3-adapter']
     },
   },
   assetsInclude: ['**/*.svg'],
