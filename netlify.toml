@@ -1,9 +1,9 @@
 [build]
   command = "npm run build"
   publish = "dist"
-  environment = { NODE_VERSION = "18" }
 
 [build.environment]
+  NODE_VERSION = "18"
   VITE_MAIN_CANISTER_ID = "hp6ha-baaaa-aaaad-aaloq-cai"
   VITE_ZK_CANISTER_ID = "hi7bu-myaaa-aaaad-aaloa-cai"
   VITE_IC_HOST = "https://ic0.app"
