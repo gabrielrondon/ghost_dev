@@ -28,6 +28,7 @@ export interface ICPToken {
   balance: string
   decimals: number
   amount: string
+  usdValue?: number
 }
 
 export interface ICPTransaction {

@@ -110,6 +110,7 @@ export async function connectWallet(walletType: 'ethereum' | 'internetComputer' 
       
       // Get NFTs
       const nfts = await window.ic.plug.getNFTs();
+      console.log('Raw NFTs from Plug:', nfts);
       
       // Get token balances
       const balances = await window.ic.plug.getBalance();
@@ -147,13 +148,16 @@ export async function connectWallet(walletType: 'ethereum' | 'internetComputer' 
         network: 'mainnet',
         balance: tokens[0]?.balance || '0',
         tokens,
-        nfts: nfts.map((nft: any) => ({
-          canisterId: nft.canister || nft.canisterId,
-          index: nft.index || 0,
-          name: nft.name || `NFT #${nft.index}`,
-          url: nft.url || '',
-          collection: nft.collection || 'Unknown'
-        })),
+        nfts: nfts.map((nft: any) => {
+          console.log('Processing NFT:', nft);
+          return {
+            canisterId: nft.canister || nft.canisterId,
+            index: nft.index || nft.tokenIndex || 0,
+            name: nft.name || `NFT #${nft.index || nft.tokenIndex}`,
+            url: nft.url || '',
+            collection: nft.collection || 'Unknown'
+          };
+        }),
         transactions
       };
 

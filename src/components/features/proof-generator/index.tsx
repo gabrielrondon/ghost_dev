@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { verifyNftOwnership } from '@/services/api'
+import { verifyNftOwnership, verifyOwnership } from '@/services/verification'
 import { Shield, CheckCircle2, XCircle, Loader2, Copy, ExternalLink, Image, Wallet, ArrowUpRight, ArrowDownLeft, Vote, AlertTriangle, RefreshCw } from 'lucide-react'
 import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet'
 import type { VerificationResult, VerifiableItemType } from '@/types/proof'
@@ -22,8 +22,22 @@ interface ProofGeneratorProps {
   onRefreshData: (principal: string) => Promise<void>
 }
 
+interface DebugInfo {
+  walletType?: string
+  principal?: string
+  address?: string
+  nftsCount?: number
+  timestamp?: string
+  directNftCheck?: {
+    count: number
+    data: any[]
+    timestamp: string
+  }
+  [key: string]: any
+}
+
 function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onRefreshData }: ProofGeneratorProps) {
-  const [selectedItemType, setSelectedItemType] = useState<VerifiableItemType>('nft')
+  const [selectedItemType, setSelectedItemType] = useState<VerifiableItemType>('token')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
@@ -33,6 +47,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
   const [isLoadingData, setIsLoadingData] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<DebugInfo>({})
 
   useEffect(() => {
     if (walletInfo?.principal) {
@@ -45,6 +60,17 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
     setConnectionError(null)
     try {
       await onRefreshData(principal)
+      
+      // Store debug information
+      setDebugInfo(prev => ({
+        ...prev,
+        walletType: walletInfo?.walletType,
+        principal: walletInfo?.principal,
+        address: walletInfo?.address,
+        nftsCount: walletInfo?.nfts?.length || 0,
+        timestamp: new Date().toISOString()
+      }))
+      
     } catch (error) {
       console.error('Failed to fetch user data:', error)
       setConnectionError('Failed to load wallet data. Please try again.')
@@ -90,23 +116,76 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
     }
   }
 
-  async function handleVerify() {
-    if (!walletInfo || !selectedItemId) return
-
-    setIsVerifying(true)
+  async function handleCheckWalletDirectly() {
+    setIsRefreshing(true)
     try {
-      const result = await verifyNftOwnership(
-        {
-          walletAddress: walletInfo.address,
-          itemType: selectedItemType,
-          itemId: selectedItemId,
-          chainId: walletInfo.chainId || (walletInfo.walletType === 'internetComputer' ? 'icp' : 'eth')
-        },
-        generateProofId(),
-        generateAnonymousRef()
-      )
+      if (!window.ic?.plug) {
+        toast.error('Plug wallet not detected')
+        return
+      }
+      
+      // Try to refresh the connection
+      const isConnected = await window.ic.plug.isConnected()
+      if (!isConnected) {
+        const connected = await window.ic.plug.requestConnect()
+        if (!connected) {
+          toast.error('Failed to connect to Plug wallet')
+          return
+        }
+      }
+      
+      // Try to get NFTs directly
+      toast.loading('Checking for NFTs in wallet...')
+      console.log('Requesting NFTs directly from Plug wallet')
+      const nfts = await window.ic.plug.getNFTs()
+      console.log('Direct NFT check result:', nfts)
+      
+      toast.dismiss()
+      toast.success(`Found ${nfts.length} NFT(s) in wallet`)
+      
+      setDebugInfo(prev => ({
+        ...prev,
+        directNftCheck: {
+          count: nfts.length,
+          data: nfts,
+          timestamp: new Date().toISOString()
+        }
+      }))
+      
+      // If we have a principal, try to refresh the data through the normal path
+      if (walletInfo?.principal) {
+        await fetchUserData(walletInfo.principal)
+      }
+      
+    } catch (error) {
+      console.error('Failed to check wallet directly:', error)
+      toast.error(`Error checking wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsRefreshing(false)
+      toast.dismiss()
+    }
+  }
+
+  async function handleVerify() {
+    if (!selectedItemId || !walletInfo) return
+    
+    setIsVerifying(true)
+    setVerificationResult(null)
+    
+    try {
+      const request = {
+        walletAddress: walletInfo.address,
+        principal: walletInfo.principal,
+        chainId: walletInfo.chainId as 'icp' | 'eth',
+        itemType: selectedItemType,
+        itemId: selectedItemId
+      }
+      
+      console.log('Verifying with request:', request)
+      const result = await verifyOwnership(request)
       
       setVerificationResult(result)
+      console.log('Verification result:', result)
       
       if (result.isVerified) {
         toast.success('Zero-knowledge proof successfully generated and verified!')
@@ -114,9 +193,8 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
         toast.error('Failed to verify proof. Please try again.')
       }
     } catch (error) {
-      console.error('Proof generation failed:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to generate proof. Please try again.')
-      setVerificationResult(null)
+      console.error('Verification failed:', error)
+      toast.error(`Verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsVerifying(false)
     }
@@ -176,116 +254,254 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
           <p className="text-sm text-gray-500 mt-1">
             You need to have at least one NFT to create a verification proof
           </p>
-          <button
-            onClick={handleRefreshData}
-            disabled={isRefreshing}
-            className="flex items-center justify-center mx-auto mt-4 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm"
-          >
-            {isRefreshing ? (
-              <>
-                <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </>
+          <div className="flex flex-col space-y-2 mt-4">
+            <button
+              onClick={handleRefreshData}
+              disabled={isRefreshing}
+              className="flex items-center justify-center mx-auto px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm"
+            >
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={handleCheckWalletDirectly}
+              disabled={isRefreshing}
+              className="flex items-center justify-center mx-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md text-sm"
+            >
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Check Wallet Directly
+                </>
+              )}
+            </button>
+          </div>
+          
+          <div className="mt-4 text-xs text-gray-500 text-left p-2 bg-gray-800 rounded-md">
+            <p className="font-semibold text-gray-400 mb-2">Debugging info:</p>
+            <p>Principal: {walletInfo?.principal || 'Not available'}</p>
+            <p>Address: {walletInfo?.address || 'Not available'}</p>
+            <p>Wallet Type: {walletInfo?.walletType || 'Not available'}</p>
+            <p>Chain ID: {walletInfo?.chainId || 'Not available'}</p>
+            <p>Is Connected: {walletInfo?.isConnected ? 'Yes' : 'No'}</p>
+            <p className="mt-2 font-semibold text-gray-400">NFTs Debug:</p>
+            <p>NFT Count: {walletInfo?.nfts?.length || 0}</p>
+            <p>NFT Array Type: {walletInfo?.nfts ? typeof walletInfo.nfts : 'undefined'}</p>
+            
+            {debugInfo.directNftCheck && (
+              <div className="mt-2">
+                <p className="font-semibold text-gray-400">Direct NFT Check:</p>
+                <p>Count: {debugInfo.directNftCheck.count}</p>
+                <p>Timestamp: {debugInfo.directNftCheck.timestamp}</p>
+              </div>
             )}
-          </button>
+            
+            <div className="mt-2">
+              <p className="font-semibold text-gray-400">Full Wallet Info:</p>
+              <pre className="mt-1 overflow-auto bg-gray-900 p-2 rounded text-gray-300 text-xs">
+                {JSON.stringify(walletInfo, null, 2)}
+              </pre>
+            </div>
+            
+            <div className="mt-2">
+              <p className="font-semibold text-gray-400">Debug Info:</p>
+              <pre className="mt-1 overflow-auto bg-gray-900 p-2 rounded text-gray-300 text-xs">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            </div>
+          </div>
         </div>
       )
     }
 
+    console.log('Rendering NFTs:', walletInfo.nfts);
+
     return (
       <div className="grid grid-cols-2 gap-3">
-        {walletInfo.nfts.map((nft) => (
-          <div 
-            key={`${nft.canisterId}-${nft.index}`}
-            className={`border rounded-md p-2 cursor-pointer transition-colors ${
-              selectedItemId === `${nft.canisterId}-${nft.index}` 
-                ? 'border-purple-500 bg-purple-900/20' 
-                : 'border-gray-700 hover:border-gray-600'
-            }`}
-            onClick={() => setSelectedItemId(`${nft.canisterId}-${nft.index}`)}
-          >
-            <div className="aspect-square bg-gray-900 rounded-md flex items-center justify-center mb-2 overflow-hidden">
-              {nft.url ? (
-                <img 
-                  src={nft.url} 
-                  alt={nft.name} 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzJhMmEyYSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
-                  }}
-                />
-              ) : (
-                <Image className="w-8 h-8 text-gray-600" />
-              )}
+        <div className="col-span-2 mb-2 p-2 bg-gray-800/50 rounded-md">
+          <p className="text-xs text-gray-400">Found {walletInfo.nfts.length} NFT(s) in your wallet</p>
+        </div>
+        
+        {walletInfo.nfts.map((nft) => {
+          const nftId = `${nft.canisterId}:${nft.index}`;
+          console.log('NFT ID for selection:', nftId, 'NFT data:', nft);
+          
+          return (
+            <div 
+              key={nftId}
+              className={`border rounded-md p-2 cursor-pointer transition-colors ${
+                selectedItemId === nftId 
+                  ? 'border-purple-500 bg-purple-900/20' 
+                  : 'border-gray-700 hover:border-gray-600'
+              }`}
+              onClick={() => setSelectedItemId(nftId)}
+            >
+              <div className="aspect-square bg-gray-900 rounded-md flex items-center justify-center mb-2 overflow-hidden">
+                {nft.url ? (
+                  <img 
+                    src={nft.url} 
+                    alt={nft.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error(`Failed to load image for NFT: ${nft.name}`, nft.url);
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzJhMmEyYSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
+                    }}
+                  />
+                ) : (
+                  <Image className="w-8 h-8 text-gray-600" />
+                )}
+              </div>
+              <p className="text-sm font-medium truncate">{nft.name}</p>
+              <p className="text-xs text-gray-500 truncate">Collection: {nft.collection || 'Unknown'}</p>
+              <p className="text-xs text-gray-500 truncate">ID: {nft.index}</p>
+              <p className="text-xs text-gray-500 truncate">Canister: {nft.canisterId.substring(0, 10)}...</p>
             </div>
-            <p className="text-sm font-medium truncate">{nft.name}</p>
-            <p className="text-xs text-gray-500 truncate">ID: {nft.index}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     )
   }
 
   function renderTokens() {
-    if (tokens.length === 0) {
+    if (!walletInfo?.tokens || walletInfo.tokens.length === 0) {
       return (
         <div className="bg-gray-700/50 rounded-md p-4 text-center">
           <p className="text-gray-400">No tokens found in your wallet</p>
           <p className="text-sm text-gray-500 mt-1">
             You need to have at least one token to create a verification proof
           </p>
-          <button
-            onClick={handleRefreshData}
-            disabled={isRefreshing}
-            className="flex items-center justify-center mx-auto mt-4 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm"
-          >
-            {isRefreshing ? (
-              <>
-                <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </>
-            )}
-          </button>
+          <div className="flex flex-col space-y-2 mt-4">
+            <button
+              onClick={handleRefreshData}
+              disabled={isRefreshing}
+              className="flex items-center justify-center mx-auto px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm"
+            >
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={handleCheckWalletDirectly}
+              disabled={isRefreshing}
+              className="flex items-center justify-center mx-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md text-sm"
+            >
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Check Wallet Directly
+                </>
+              )}
+            </button>
+          </div>
+          
+          <div className="mt-4 text-xs text-gray-500 text-left p-2 bg-gray-800 rounded-md">
+            <p className="font-semibold text-gray-400 mb-2">Debugging info:</p>
+            <p>Principal: {walletInfo?.principal || 'Not available'}</p>
+            <p>Address: {walletInfo?.address || 'Not available'}</p>
+            <p>Wallet Type: {walletInfo?.walletType || 'Not available'}</p>
+            <p>Chain ID: {walletInfo?.chainId || 'Not available'}</p>
+            <p>Is Connected: {walletInfo?.isConnected ? 'Yes' : 'No'}</p>
+            <p className="mt-2 font-semibold text-gray-400">Tokens Debug:</p>
+            <p>Token Count: {walletInfo?.tokens?.length || 0}</p>
+            <p>Token Array Type: {walletInfo?.tokens ? typeof walletInfo.tokens : 'undefined'}</p>
+            
+            <div className="mt-2">
+              <p className="font-semibold text-gray-400">Full Wallet Info:</p>
+              <pre className="mt-1 overflow-auto bg-gray-900 p-2 rounded text-gray-300 text-xs">
+                {JSON.stringify(walletInfo, null, 2)}
+              </pre>
+            </div>
+            
+            <div className="mt-2">
+              <p className="font-semibold text-gray-400">Debug Info:</p>
+              <pre className="mt-1 overflow-auto bg-gray-900 p-2 rounded text-gray-300 text-xs">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            </div>
+          </div>
         </div>
       )
     }
 
+    console.log('Rendering tokens:', walletInfo.tokens);
+    
     return (
-      <div className="space-y-3">
-        {tokens.map((token) => (
-          <div 
-            key={token.symbol}
-            className={`border rounded-md p-3 cursor-pointer transition-colors ${
-              selectedItemId === token.symbol 
-                ? 'border-purple-500 bg-purple-900/20' 
-                : 'border-gray-700 hover:border-gray-600'
-            }`}
-            onClick={() => setSelectedItemId(token.symbol)}
-          >
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center mr-3">
-                <Wallet className="w-5 h-5 text-gray-400" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">{token.name}</p>
-                <div className="flex items-baseline">
-                  <p className="text-xl font-bold text-purple-400">{token.amount}</p>
-                  <p className="text-sm text-gray-400 ml-2">{token.symbol}</p>
+      <div className="grid grid-cols-1 gap-3">
+        <div className="col-span-1 mb-2 p-2 bg-gray-800/50 rounded-md">
+          <p className="text-xs text-gray-400">Found {walletInfo.tokens.length} token(s) in your wallet</p>
+        </div>
+        
+        {walletInfo.tokens.map((token) => {
+          const tokenId = `${token.symbol}:${token.amount}`;
+          console.log('Token ID for selection:', tokenId, 'Token data:', token);
+          
+          // Format the token amount with proper decimal places
+          const formattedAmount = parseFloat(token.amount).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 8
+          });
+          
+          return (
+            <div 
+              key={tokenId}
+              className={`border rounded-md p-3 cursor-pointer transition-colors ${
+                selectedItemId === tokenId 
+                  ? 'border-purple-500 bg-purple-900/20' 
+                  : 'border-gray-700 hover:border-gray-600'
+              }`}
+              onClick={() => setSelectedItemId(tokenId)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center mr-3">
+                    {token.symbol === 'ICP' ? (
+                      <span className="text-purple-400 text-sm font-semibold">ICP</span>
+                    ) : (
+                      <span className="text-gray-400 text-sm font-semibold">{token.symbol}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{token.name || token.symbol}</p>
+                    <p className="text-xs text-gray-400">{token.symbol}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium">{formattedAmount}</p>
+                  <p className="text-xs text-gray-400">≈ ${(parseFloat(token.amount) * (token.usdValue || 0)).toFixed(2)} USD</p>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     )
   }

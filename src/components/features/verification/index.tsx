@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Shield, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
-import { getVerificationProof } from '@/services/api'
+import { getVerificationProof } from '@/services/verification'
 import { toast } from 'react-hot-toast'
 
 interface VerificationPageProps {

@@ -8,11 +8,13 @@ export interface VerificationResult {
   chainId: 'icp' | 'eth'
   itemType: VerifiableItemType
   itemId: string
+  principal?: string
   
   // NFT specific fields
   nftContractAddress?: string
   nftIndex?: number
   nftName?: string
+  nftImageUrl?: string
   
   // Token specific fields
   tokenName?: string
