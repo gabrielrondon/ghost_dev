@@ -14,7 +14,7 @@ export interface Task {
 
 export interface WalletInfo {
   address: string;
-  chainId: string;
+  chainId: 'icp' | 'eth';
   chainName: string;
   isConnected: boolean;
 }
@@ -30,7 +30,7 @@ export interface WalletVerificationRequest {
   walletAddress: string;
   itemType: VerifiableItemType;
   itemId?: string; // NFT canisterId-index, token symbol, transaction id, etc.
-  chainId: string;
+  chainId: 'icp' | 'eth';
   additionalData?: Record<string, any>;
 }
 
@@ -40,9 +40,9 @@ export interface VerificationResult {
   timestamp: number;
   anonymousReference: string;
   walletAddress: string;
-  chainId: string;
+  chainId: 'icp' | 'eth';
   itemType: VerifiableItemType;
-  itemId?: string;
+  itemId: string;
   
   // NFT specific fields
   nftContractAddress?: string;
@@ -53,12 +53,12 @@ export interface VerificationResult {
   // Token specific fields
   tokenSymbol?: string;
   tokenName?: string;
-  tokenAmount?: number;
+  tokenAmount?: string;
   
   // Transaction specific fields
   transactionHash?: string;
-  transactionType?: string;
-  transactionAmount?: number;
+  transactionType?: 'send' | 'receive' | 'swap' | 'mint' | 'burn';
+  transactionAmount?: string;
   transactionToken?: string;
   transactionTimestamp?: number;
   

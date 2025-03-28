@@ -6,7 +6,11 @@ export interface WalletInfo {
   balance?: string
   network?: string
   walletType: 'internetComputer' | 'ethereum'
+  chainId: 'icp' | 'eth'
+  chainName: string
   nfts?: NFTInfo[]
+  tokens?: ICPToken[]
+  transactions?: ICPTransaction[]
 }
 
 export interface NFTInfo {

@@ -90,19 +90,20 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
         walletAddress: walletInfo.address,
         itemType: selectedItemType,
         itemId: selectedItemId,
-        chainId: walletInfo.walletType === 'internetComputer' ? 'icp' : 'eth'
+        chainId: walletInfo.chainId || (walletInfo.walletType === 'internetComputer' ? 'icp' : 'eth')
       })
       
       setVerificationResult(result)
       
       if (result.isVerified) {
-        toast.success('Zero-knowledge proof successfully generated!')
+        toast.success('Zero-knowledge proof successfully generated and verified!')
       } else {
-        toast.error('Failed to generate proof. Please try again.')
+        toast.error('Failed to verify proof. Please try again.')
       }
     } catch (error) {
-      console.error('Failed to verify:', error)
-      toast.error('Failed to generate proof. Please try again.')
+      console.error('Proof generation failed:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to generate proof. Please try again.')
+      setVerificationResult(null)
     } finally {
       setIsVerifying(false)
     }

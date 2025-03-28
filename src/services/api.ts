@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Task, WalletVerificationRequest, VerificationResult, InternetComputerNft, VerifiableItemType, WalletInfo } from '@/types';
 import type { ICPToken, ICPTransaction } from '@/lib/wallet';
+import { canisterService } from './canister'
+import { Principal } from '@dfinity/principal'
 
 // Mock storage to persist data during development
 const mockStorage = new Map<string, Task[]>();
@@ -133,13 +135,91 @@ mockIcpNfts.set('principal-123', sampleNfts);
 mockIcpTokens.set('principal-123', sampleTokens);
 mockIcpTransactions.set('principal-123', sampleTransactions);
 
-const MOCK_DELAY = 500; // Simulate network delay
+const MOCK_DELAY = 1000; // Simulated network delay
 
 async function generateReference(): Promise<string> {
-    await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
-    const referenceId = uuidv4();
-    mockStorage.set(referenceId, []);
-    return referenceId;
+  return Math.random().toString(36).substring(2)
+}
+
+function generateMerkleProof(items: bigint[]): { path: bigint[], indices: number[] } {
+  // This is a simplified Merkle proof generation
+  // In production, this would be replaced with actual Merkle tree computation
+  return {
+    path: items.map(x => x + BigInt(1)), // Dummy path
+    indices: Array.from({ length: items.length }, (_, i) => i)
+  }
+}
+
+async function verifyNftOwnership(request: WalletVerificationRequest): Promise<VerificationResult> {
+  // Parse the NFT contract address and index
+  const [canisterId, indexStr] = (request.itemId || '').split('-')
+  const nftIndex = parseInt(indexStr, 10)
+  
+  // Convert principal to bigint for the circuit
+  const principalBytes = Principal.fromText(request.walletAddress).toUint8Array()
+  const principalHex = Array.from(principalBytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+  const principalBigInt = BigInt('0x' + principalHex)
+  
+  // Generate Merkle proofs (in production, these would come from actual data)
+  const nftData = [principalBigInt, BigInt(nftIndex)]
+  const tokenData = [principalBigInt, BigInt(1000)] // Dummy token data
+  
+  const nftProof = generateMerkleProof(nftData)
+  const tokenProof = generateMerkleProof(tokenData)
+  
+  // Prepare input for the ZK circuit
+  const input = {
+    nft_merkle_path: nftProof.path,
+    minimum_balance: BigInt(0), // Not used for NFT verification
+    token_id: BigInt(nftIndex),
+    collection_id: BigInt('0x' + canisterId),
+    wallet_principal: principalBigInt,
+    token_canister_id: BigInt(0), // Not used for NFT verification
+    merkle_root: BigInt(0), // Will be computed by the circuit
+    nft_merkle_indices: nftProof.indices,
+    token_merkle_path: tokenProof.path,
+    actual_balance: BigInt(1), // For NFTs, this is always 1
+    token_merkle_indices: tokenProof.indices
+  }
+  
+  // Generate the proof using the canister
+  const proofResult = await canisterService.generateProof(input)
+  
+  if (!proofResult.success) {
+    throw new Error(proofResult.error.message)
+  }
+  
+  // Verify the proof
+  const verificationResult = await canisterService.verifyProof(
+    proofResult.result.proof,
+    proofResult.result.public_inputs
+  )
+  
+  if (!verificationResult.success) {
+    throw new Error(verificationResult.error.message)
+  }
+  
+  // Create the verification result
+  const result: VerificationResult = {
+    isVerified: verificationResult.isValid,
+    proofId: Math.random().toString(36).substring(2),
+    timestamp: Date.now(),
+    anonymousReference: Math.random().toString(36).substring(2),
+    walletAddress: request.walletAddress,
+    chainId: request.chainId as 'icp' | 'eth',
+    itemType: 'nft' as VerifiableItemType,
+    itemId: request.itemId || '',
+    nftContractAddress: canisterId,
+    nftIndex,
+    principal: request.chainId === 'icp' ? request.walletAddress : undefined
+  }
+  
+  // Store the result for later verification
+  mockVerificationResults.set(result.proofId, result)
+  
+  return result
 }
 
 async function assignTask(
@@ -210,85 +290,6 @@ async function executeTasks(referenceId: string): Promise<Task[]> {
 async function deleteReference(referenceId: string): Promise<boolean> {
     await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
     return mockStorage.delete(referenceId);
-}
-
-// NFT Verification Functions
-async function verifyNftOwnership(request: WalletVerificationRequest): Promise<VerificationResult> {
-    await new Promise(resolve => setTimeout(resolve, MOCK_DELAY * 2)); // Simulate longer verification time
-    
-    const proofId = uuidv4();
-    const anonymousReference = uuidv4();
-    let result: VerificationResult;
-    
-    switch (request.itemType) {
-        case 'nft':
-            result = await verifyNft(request, proofId, anonymousReference);
-            break;
-        case 'token':
-            result = await verifyToken(request, proofId, anonymousReference);
-            break;
-        case 'transaction':
-            result = await verifyTransaction(request, proofId, anonymousReference);
-            break;
-        case 'governance':
-            result = await verifyGovernance(request, proofId, anonymousReference);
-            break;
-        default:
-            throw new Error(`Unsupported verification type: ${request.itemType}`);
-    }
-    
-    // Store the result for later retrieval
-    mockVerificationResults.set(proofId, result);
-    
-    return result;
-}
-
-async function verifyNft(
-    request: WalletVerificationRequest, 
-    proofId: string, 
-    anonymousReference: string
-): Promise<VerificationResult> {
-    // Parse the NFT contract address and index if provided
-    let nftIndex: number | undefined;
-    let nftCanisterId: string | undefined;
-    let nftName: string | undefined;
-    let nftImageUrl: string | undefined;
-    
-    if (request.itemId && request.itemId.includes('-')) {
-        const parts = request.itemId.split('-');
-        nftCanisterId = parts[0];
-        nftIndex = parseInt(parts[1], 10);
-        
-        // Find the NFT details if available
-        if (request.chainId === 'icp' && mockIcpNfts.has('principal-123')) {
-            const nfts = mockIcpNfts.get('principal-123') || [];
-            const nft = nfts.find(n => n.canisterId === nftCanisterId && n.index === nftIndex);
-            if (nft) {
-                nftName = nft.name;
-                nftImageUrl = nft.url;
-            }
-        }
-    }
-    
-    // For testing purposes, always verify if an itemId is provided
-    // In a real implementation, this would check if the wallet actually owns the NFT
-    const isVerified = !!request.itemId;
-    
-    return {
-        isVerified,
-        proofId,
-        timestamp: Date.now(),
-        anonymousReference,
-        walletAddress: request.walletAddress,
-        chainId: request.chainId,
-        itemType: 'nft',
-        itemId: request.itemId,
-        nftContractAddress: nftCanisterId,
-        nftIndex,
-        nftName,
-        nftImageUrl,
-        principal: request.chainId === 'icp' ? request.walletAddress : undefined
-    };
 }
 
 async function verifyToken(

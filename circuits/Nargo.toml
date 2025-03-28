@@ -1,9 +1,6 @@
 [package]
-name = "ghost_agent_zk"
-type = "lib"
-version = "0.1.0"
-authors = ["Ghost Agent Team"]
-compiler_version = "0.17.0"
+name = "icp_attestation"
+type = "bin"
+authors = [""]
 
 [dependencies]
-noir_stdlib = { git = "https://github.com/noir-lang/noir", tag = "v0.17.0" } 
