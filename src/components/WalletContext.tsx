@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet';
 import toast from 'react-hot-toast';
 import { getICPTokenData, ICP_LEDGER_CANISTER_ID } from '@/services/ledger';
@@ -8,6 +8,7 @@ import { IDL } from '@dfinity/candid';
 // Constants
 const ZK_CANISTER_ID = import.meta.env.VITE_ZK_CANISTER_ID || 'hjhzy-qyaaa-aaaak-qc3nq-cai';
 const MAIN_CANISTER_ID = import.meta.env.VITE_MAIN_CANISTER_ID || 'hrf2i-lyaaa-aaaak-qc3na-cai';
+const CONNECTION_CHECK_INTERVAL = 10000; // 10 seconds
 
 // Sample NFTs for development/testing
 const SAMPLE_NFTS = [
@@ -37,6 +38,65 @@ const MOCK_TOKENS: ICPToken[] = [
 
 // Determine if we're in development mode
 const isDev = import.meta.env.DEV === true;
+
+// Helper function to check if Plug wallet exists with timeout
+const checkForPlugWallet = async (maxAttempts = 5, interval = 500): Promise<boolean> => {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (window.hasOwnProperty('ic') && (window as any).ic?.hasOwnProperty('plug')) {
+      return true;
+    }
+    // Wait before next check
+    await new Promise(resolve => setTimeout(resolve, interval));
+  }
+  return false;
+};
+
+// Helper function to detect Plug wallet version
+const detectPlugVersion = async (): Promise<string> => {
+  try {
+    const plug = (window as any).ic.plug;
+    
+    // Check for version info if available
+    if (plug.VERSION || plug.version) {
+      return plug.VERSION || plug.version;
+    }
+    
+    // Detect by available methods
+    if (typeof plug.isConnected === 'function') {
+      return 'modern';
+    }
+    
+    return 'legacy';
+  } catch (error) {
+    console.error('Error detecting Plug version:', error);
+    return 'unknown';
+  }
+};
+
+// Retry wrapper function for wallet operations
+const withRetry = async <T,>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  delay = 1000,
+  operationName = 'operation'
+): Promise<T> => {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      console.warn(`Attempt ${attempt + 1} for ${operationName} failed:`, error);
+      lastError = error;
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  console.error(`All ${maxRetries} attempts for ${operationName} failed`);
+  throw lastError;
+};
 
 // Export the context type for use in test files
 export interface WalletContextType {
@@ -68,6 +128,8 @@ interface ICPlug {
   getAccountId?: () => Promise<string>;
   disconnect?: () => Promise<void>;
   getBalance?: () => Promise<any[]>;
+  VERSION?: string;
+  version?: string;
 }
 
 const defaultWalletContext: WalletContextType = {
@@ -85,6 +147,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [connectionCheckerInterval, setConnectionCheckerInterval] = useState<number | null>(null);
 
   // Function to refresh wallet data
   const refreshData = async () => {
@@ -93,26 +156,79 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // For now it's just a placeholder
   };
 
-  const connect = async () => {
-    // Check if Plug wallet exists using type assertion
-    if (!window.hasOwnProperty('ic') || !(window as any).ic?.hasOwnProperty('plug')) {
-      toast.error('Plug wallet not found. Please install the Plug extension first.');
-      return null;
+  // Function to check connection status periodically
+  const startConnectionMonitoring = (plug: ICPlug) => {
+    // Clear any existing interval
+    if (connectionCheckerInterval) {
+      window.clearInterval(connectionCheckerInterval);
     }
+    
+    // Set up new monitoring interval
+    const intervalId = window.setInterval(async () => {
+      try {
+        // Only check if the plug object has the isConnected method
+        if (typeof plug.isConnected === 'function') {
+          const connected = await plug.isConnected();
+          if (!connected && walletInfo?.isConnected) {
+            console.warn('Wallet disconnected unexpectedly');
+            setWalletInfo(null);
+            toast.error('Wallet disconnected. Please reconnect.');
+            window.clearInterval(intervalId);
+            setConnectionCheckerInterval(null);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking connection status:', error);
+      }
+    }, CONNECTION_CHECK_INTERVAL);
+    
+    setConnectionCheckerInterval(intervalId);
+    
+    return () => {
+      window.clearInterval(intervalId);
+      setConnectionCheckerInterval(null);
+    };
+  };
 
-    // Use type assertion to access Plug methods
-    const plug = (window as any).ic.plug as ICPlug;
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (connectionCheckerInterval) {
+        window.clearInterval(connectionCheckerInterval);
+      }
+    };
+  }, [connectionCheckerInterval]);
 
+  const connect = async () => {
     setIsConnecting(true);
     setError(null);
     
     try {
+      // Improved Plug wallet detection with timeout
+      const plugExists = await checkForPlugWallet();
+      if (!plugExists) {
+        toast.error('Plug wallet not found. Please install the Plug extension first.');
+        return null;
+      }
+      
+      // Use type assertion to access Plug methods
+      const plug = (window as any).ic.plug as ICPlug;
+      
+      // Detect Plug wallet version to apply appropriate strategy
+      const plugVersion = await detectPlugVersion();
+      console.log('Detected Plug Version:', plugVersion);
+      
       let isConnected = false;
       
-      // Check if we're already connected
+      // Check if we're already connected based on version
       try {
         if (typeof plug.isConnected === 'function') {
-          isConnected = await plug.isConnected();
+          isConnected = await withRetry(
+            () => plug.isConnected!(),
+            3,
+            500,
+            'isConnected check'
+          );
         }
       } catch (error) {
         console.error('Error checking connection:', error);
@@ -128,18 +244,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         console.log('Requesting connection with whitelist:', canisterIds);
         
-        isConnected = await plug.requestConnect({
-          whitelist: canisterIds,
-          host: import.meta.env.VITE_IC_HOST || 'https://icp0.io'
-        });
+        isConnected = await withRetry(
+          () => plug.requestConnect({
+            whitelist: canisterIds,
+            host: import.meta.env.VITE_IC_HOST || 'https://icp0.io'
+          }),
+          3,
+          1000,
+          'requestConnect'
+        );
         
         if (!isConnected) {
           throw new Error('Failed to connect to wallet');
         }
       }
       
-      // Get principal
-      const principal = await plug.getPrincipal();
+      // Get principal with retry
+      const principal = await withRetry(
+        () => plug.getPrincipal(),
+        3,
+        500,
+        'getPrincipal'
+      );
       const principalText = principal.toString();
       
       // Initialize variables for NFTs and tokens
@@ -147,11 +273,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       let tokens: ICPToken[] = [];
       let usingMockTokens = false;
       
-      // Try to fetch NFTs if the function exists
+      // Try to fetch NFTs if the function exists - version aware
       try {
         if (typeof plug.getNFTs === 'function') {
           console.log('Attempting to fetch NFTs...');
-          nfts = await plug.getNFTs();
+          nfts = await withRetry(
+            () => plug.getNFTs!(),
+            2,
+            500,
+            'getNFTs'
+          );
           console.log('Successfully fetched NFTs:', nfts);
         } else {
           console.log('getNFTs function not available in this version of Plug');
@@ -166,11 +297,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // Try to fetch token balances if the function exists
+      // Try to fetch token balances if the function exists - version aware
       try {
         if (typeof plug.getBalance === 'function') {
           console.log('Attempting to fetch token balances...');
-          const balances = await plug.getBalance();
+          const balances = await withRetry(
+            () => plug.getBalance!(),
+            2,
+            500,
+            'getBalance'
+          );
           
           // Map wallet balances to our token format
           tokens = balances.map(balance => ({
@@ -198,14 +334,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           if (!plug.agent) {
             console.log('Creating new agent for ledger interactions');
             if (typeof plug.createAgent === 'function') {
-              await plug.createAgent({ 
-                whitelist: [
-                  ICP_LEDGER_CANISTER_ID,
-                  ZK_CANISTER_ID,
-                  MAIN_CANISTER_ID
-                ], 
-                host: import.meta.env.VITE_IC_HOST || 'https://icp0.io'
-              });
+              await withRetry(
+                () => plug.createAgent!({ 
+                  whitelist: [
+                    ICP_LEDGER_CANISTER_ID,
+                    ZK_CANISTER_ID,
+                    MAIN_CANISTER_ID
+                  ], 
+                  host: import.meta.env.VITE_IC_HOST || 'https://icp0.io'
+                }),
+                3,
+                500,
+                'createAgent'
+              );
             } else {
               throw new Error('createAgent function not available');
             }
@@ -215,7 +356,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           
           // Get real ICP token data from the ledger
           console.log(`Getting token data for principal: ${principalText}`);
-          const icpToken = await getICPTokenData(principalText);
+          const icpToken = await withRetry(
+            () => getICPTokenData(principalText),
+            2,
+            1000,
+            'getICPTokenData'
+          );
           tokens = [icpToken];
           
           console.log('Successfully fetched ICP balance from ledger:', icpToken);
@@ -264,7 +410,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       let accountId = '';
       try {
         if (typeof plug.getAccountId === 'function') {
-          accountId = await plug.getAccountId();
+          accountId = await withRetry(
+            () => plug.getAccountId!(),
+            2,
+            500,
+            'getAccountId'
+          );
           console.log('Account ID:', accountId);
         }
       } catch (error) {
@@ -297,6 +448,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Save connection state
       localStorage.setItem('wallet_connected', 'true');
       
+      // Start connection monitoring
+      startConnectionMonitoring(plug);
+      
       // Trigger data refresh after connection
       await refreshData();
       
@@ -321,6 +475,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (typeof plug.disconnect === 'function') {
           await plug.disconnect();
         }
+      }
+      
+      // Clear connection monitoring interval
+      if (connectionCheckerInterval) {
+        window.clearInterval(connectionCheckerInterval);
+        setConnectionCheckerInterval(null);
       }
     } catch (error) {
       console.error('Error during disconnect:', error);
