@@ -511,48 +511,154 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
             </div>
           </div>
         ) : (
-          <div className="bg-gray-700 p-4 rounded-md mb-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm text-gray-400">Connected Wallet</p>
-                <p className="font-mono text-sm truncate text-purple-400">
-                  {walletInfo.walletType === 'internetComputer' 
-                    ? `${walletInfo.principal?.slice(0, 6)}...${walletInfo.principal?.slice(-4)}`
-                    : `${walletInfo.address.slice(0, 6)}...${walletInfo.address.slice(-4)}`}
-                </p>
-              </div>
-              <div className="flex items-center">
-                <button
-                  onClick={handleRefreshData}
-                  disabled={isRefreshing}
-                  className="text-sm text-gray-400 hover:text-gray-300 mr-4 flex items-center"
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="animate-spin h-4 w-4" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                </button>
-                <button
-                  onClick={handleDisconnectWallet}
-                  className="text-sm text-red-400 hover:text-red-300"
-                >
-                  Disconnect
-                </button>
+          <>
+            <div className="bg-gray-700 p-4 rounded-md mb-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-gray-400">Connected Wallet</p>
+                  <p className="font-mono text-sm truncate text-purple-400">
+                    {walletInfo.walletType === 'internetComputer' 
+                      ? `${walletInfo.principal?.slice(0, 6)}...${walletInfo.principal?.slice(-4)}`
+                      : `${walletInfo.address.slice(0, 6)}...${walletInfo.address.slice(-4)}`}
+                  </p>
+                </div>
+                <div className="flex items-center">
+                  <button
+                    onClick={handleRefreshData}
+                    disabled={isRefreshing}
+                    className="text-sm text-gray-400 hover:text-gray-300 mr-4 flex items-center"
+                  >
+                    {isRefreshing ? (
+                      <Loader2 className="animate-spin h-4 w-4" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={handleDisconnectWallet}
+                    className="text-sm text-red-400 hover:text-red-300"
+                  >
+                    Disconnect
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+            
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">What would you like to verify?</h3>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <button
+                  onClick={() => setSelectedItemType('token')}
+                  className={`p-2 rounded-md flex flex-col items-center justify-center text-sm ${
+                    selectedItemType === 'token' 
+                      ? 'bg-purple-900/50 text-purple-300 border border-purple-500' 
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  Token Holdings
+                </button>
+                <button
+                  onClick={() => setSelectedItemType('transaction')}
+                  className={`p-2 rounded-md flex flex-col items-center justify-center text-sm ${
+                    selectedItemType === 'transaction'
+                      ? 'bg-purple-900/50 text-purple-300 border border-purple-500' 
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  Transactions
+                </button>
+                <button
+                  onClick={() => setSelectedItemType('governance')}
+                  className={`p-2 rounded-md flex flex-col items-center justify-center text-sm ${
+                    selectedItemType === 'governance'
+                      ? 'bg-purple-900/50 text-purple-300 border border-purple-500' 
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  Governance
+                </button>
+              </div>
+
+              <div className="mt-4 mb-6">
+                {renderVerifiableItems()}
+              </div>
+
+              {selectedItemId && (
+                <div className="flex justify-center mt-6">
+                  <button
+                    onClick={handleVerify}
+                    disabled={isVerifying || !selectedItemId}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-md flex items-center justify-center"
+                  >
+                    {isVerifying ? (
+                      <>
+                        <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                        Generating Zero-Knowledge Proof...
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="h-5 w-5 mr-2" />
+                        Generate Zero-Knowledge Proof
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {verificationResult && (
+                <div className="mt-6 p-4 bg-gray-700/50 rounded-md border border-gray-600">
+                  <h4 className="text-lg font-semibold mb-3 flex items-center">
+                    {verificationResult.isVerified ? (
+                      <>
+                        <CheckCircle2 className="h-5 w-5 text-green-400 mr-2" />
+                        <span className="text-green-400">Proof Verified Successfully</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-5 w-5 text-red-400 mr-2" />
+                        <span className="text-red-400">Verification Failed</span>
+                      </>
+                    )}
+                  </h4>
+                  
+                  <div className="bg-gray-800 p-3 rounded-md mb-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-400">Proof ID</span>
+                      <button 
+                        onClick={() => copyToClipboard(verificationResult.proofId)}
+                        className="text-xs text-purple-400 hover:text-purple-300 flex items-center"
+                      >
+                        {copied ? 'Copied!' : (
+                          <>
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy ID
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="font-mono text-xs text-gray-300 break-all">{verificationResult.proofId}</p>
+                  </div>
+                  
+                  <div className="bg-gray-800 p-3 rounded-md mb-3">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm text-gray-400">Anonymized Reference</span>
+                    </div>
+                    <p className="font-mono text-xs text-gray-300 break-all">{verificationResult.anonymousReference}</p>
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-green-900/20 border border-green-800 rounded-md">
+                    <p className="text-sm text-green-300">
+                      This proof can be verified by anyone without revealing your identity or wallet address.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
-      
-      {walletInfo && (
-        <>
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-3">What would you like to verify?</h3>
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              <button
-                className={`p-2 rounded-md flex flex-col items-center justify-center text-sm ${
-                  selectedItemType === 'token' 
-                    ? 'bg-purple-900/50 text-purple-300 border border-purple-500' 
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`
+    </div>
+  );
+}
+
+export default ProofGenerator;
