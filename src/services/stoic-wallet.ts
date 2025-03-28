@@ -37,57 +37,97 @@ function getTokenName(canisterId: string): string {
 }
 
 /**
+ * Check if we're in a browser environment
+ * This is important for crypto API access
+ */
+function isBrowser(): boolean {
+  return typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
+/**
  * Connect to Stoic Wallet
  * @returns Promise with the connection result
  */
 export async function connectToStoicWallet(): Promise<StoicConnectionResult> {
-  // Create AuthClient
-  const authClient = await AuthClient.create({
-    idleOptions: {
-      disableIdle: true,
-      disableDefaultIdleCallback: true
-    }
-  });
-
-  // Check if already authenticated
-  const isAuthenticated = await authClient.isAuthenticated();
-  
-  // If not authenticated, login
-  if (!isAuthenticated) {
-    await new Promise<void>((resolve, reject) => {
-      authClient.login({
-        identityProvider: STOIC_HOST,
-        onSuccess: () => resolve(),
-        onError: (error) => reject(new Error(`Failed to login to Stoic: ${error}`))
-      });
-    });
+  // Check if running in a browser environment
+  if (!isBrowser()) {
+    throw new Error('Stoic wallet requires a browser environment with crypto support');
   }
 
-  // Get identity
-  const identity = authClient.getIdentity();
-  
-  // Create agent with identity
-  const agent = new HttpAgent({
-    host: import.meta.env.VITE_IC_HOST || 'https://icp0.io',
-    identity
-  });
+  try {
+    // Create AuthClient
+    const authClient = await AuthClient.create({
+      idleOptions: {
+        disableIdle: true,
+        disableDefaultIdleCallback: true
+      }
+    });
 
-  // Get principal
-  const principal = identity.getPrincipal();
+    // Check if already authenticated
+    const isAuthenticated = await authClient.isAuthenticated();
+    
+    // If not authenticated, login with proper redirect to Stoic
+    if (!isAuthenticated) {
+      await new Promise<void>((resolve, reject) => {
+        authClient.login({
+          identityProvider: STOIC_HOST,
+          windowOpenerFeatures: 
+            `left=${window.screen.width / 2 - 525 / 2}, ` +
+            `top=${window.screen.height / 2 - 705 / 2}, ` +
+            `toolbar=0,location=0,menubar=0,width=525,height=705`,
+          onSuccess: () => resolve(),
+          onError: (error) => reject(new Error(`Failed to login to Stoic: ${error}`))
+        });
+      });
+    }
 
-  return {
-    identity,
-    principal,
-    agent
-  };
+    // Get identity
+    const identity = authClient.getIdentity();
+    
+    // Verify we have a valid identity
+    if (!identity) {
+      throw new Error('Failed to obtain identity from Stoic wallet');
+    }
+    
+    // Create agent with identity
+    const agent = new HttpAgent({
+      host: import.meta.env.VITE_IC_HOST || 'https://icp0.io',
+      identity
+    });
+
+    // Get principal
+    const principal = identity.getPrincipal();
+
+    // Log success
+    console.log('Successfully connected to Stoic wallet');
+    console.log('Principal:', principal.toString());
+
+    return {
+      identity,
+      principal,
+      agent
+    };
+  } catch (error) {
+    console.error('Error connecting to Stoic wallet:', error);
+    if (error instanceof Error && error.message.includes('crypto')) {
+      throw new Error('Your browser is missing required security features. Please use a modern browser with Web Crypto API support.');
+    }
+    throw error;
+  }
 }
 
 /**
  * Disconnect from Stoic Wallet
  */
 export async function disconnectFromStoicWallet(): Promise<void> {
-  const authClient = await AuthClient.create();
-  authClient.logout();
+  try {
+    const authClient = await AuthClient.create();
+    authClient.logout();
+    console.log('Successfully disconnected from Stoic wallet');
+  } catch (error) {
+    console.error('Error disconnecting from Stoic wallet:', error);
+    throw error;
+  }
 }
 
 /**

@@ -43,12 +43,12 @@ describe('WalletConnect', () => {
   it('renders connect button when not connected', () => {
     const mockConnect = vi.fn().mockResolvedValue(undefined);
     
-    // Update the mock to show connecting state
+    // Update the mock to show not connecting state
     vi.mocked(useWallet).mockReturnValue({
       isConnected: false,
       connect: mockConnect,
       disconnect: vi.fn(),
-      isConnecting: true,
+      isConnecting: false,
       error: null,
       walletInfo: null,
       activeWallet: null
@@ -56,9 +56,10 @@ describe('WalletConnect', () => {
     
     const { container } = render(<WalletConnect />);
     
-    // Verify connect button is present
-    const connectButton = within(container).getByText(/connect/i);
-    expect(connectButton).toBeInTheDocument();
+    // Verify button with the text "Connect" is present (use data-testid or a more specific selector)
+    const connectButtons = within(container).getAllByRole('button');
+    expect(connectButtons[0]).toHaveTextContent(/connect/i);
+    expect(connectButtons[0]).toBeInTheDocument();
   })
 
   it('shows error state when connection fails', () => {

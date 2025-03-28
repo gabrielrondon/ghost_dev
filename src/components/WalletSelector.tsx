@@ -34,19 +34,23 @@ interface WalletOption {
   comingSoon?: boolean;
 }
 
+// Read environment variables to determine wallet availability
+const isStoicEnabled = import.meta.env.VITE_ENABLE_STOIC === 'true';
+const isPlugEnabled = import.meta.env.VITE_ENABLE_PLUG === 'true';
+
 const walletOptions: WalletOption[] = [
   {
     id: 'stoic',
     name: 'Stoic Wallet',
     icon: <StoicIcon />,
-    available: true
+    available: isStoicEnabled
   },
   {
     id: 'plug',
     name: 'Plug Wallet',
     icon: <PlugIcon />,
-    available: false,
-    comingSoon: true
+    available: isPlugEnabled,
+    comingSoon: !isPlugEnabled
   }
 ];
 

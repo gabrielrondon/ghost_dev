@@ -216,14 +216,40 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       console.log('Connecting to Stoic wallet...');
       
-      // Connect to Stoic
-      const { principal, agent } = await withRetry(
-        () => connectToStoicWallet(),
-        3,
-        1000,
-        'connectToStoicWallet'
-      );
+      // Connect to Stoic with a more robust retry mechanism
+      // that handles browser redirects properly
+      let connectionAttempt = 0;
+      const maxAttempts = 3;
+      let connectionResult: StoicConnectionResult | null = null;
       
+      while (connectionAttempt < maxAttempts && !connectionResult) {
+        try {
+          connectionAttempt++;
+          console.log(`Stoic connection attempt ${connectionAttempt} of ${maxAttempts}`);
+          
+          connectionResult = await connectToStoicWallet();
+          
+          // If we got here, we successfully connected
+          break;
+        } catch (error) {
+          console.error(`Stoic connection attempt ${connectionAttempt} failed:`, error);
+          
+          // If we've reached max attempts, throw the error
+          if (connectionAttempt >= maxAttempts) {
+            throw error;
+          }
+          
+          // Otherwise wait a bit and try again
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      // If we still don't have a connection, throw an error
+      if (!connectionResult) {
+        throw new Error('Failed to connect to Stoic wallet after multiple attempts');
+      }
+      
+      const { principal, agent } = connectionResult;
       const principalText = principal.toString();
       console.log('Connected to Stoic wallet with principal:', principalText);
       
@@ -272,7 +298,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return walletData;
     } catch (error) {
       console.error('Error connecting to Stoic wallet:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to connect to Stoic wallet');
+      
+      // Check for specific errors and provide better messages
+      if (error instanceof Error) {
+        if (error.message.includes('popup') || error.message.includes('window')) {
+          toast.error('Pop-up blocked. Please enable pop-ups for Stoic wallet authentication.');
+        } else if (error.message.includes('crypto')) {
+          toast.error('Your browser is missing required security features.');
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.error('Failed to connect to Stoic wallet');
+      }
+      
       throw error;
     }
   };
