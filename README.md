@@ -1,81 +1,75 @@
-# Ghost Agent: Zero-Knowledge Proof System
+# Ghost Protocol
 
-Ghost Agent is a canister-based ZK proof system for private attestations on the Internet Computer Protocol (ICP). It allows users to create verifiable proofs without revealing sensitive information.
+A Zero-Knowledge Proof (ZKP) system for private attestations on the Internet Computer.
 
-## Milestone 1: Comprehensive Verification System
-
-The first milestone implements a zero-knowledge proof system for various on-chain activities. Users can:
-
-1. Connect their Internet Computer wallet (Plug)
-2. View and select from their wallet's contents:
-   - NFTs
-   - Token balances
-   - Transaction history
-   - Governance participation (coming soon)
-3. Generate anonymous proofs of ownership or activity
-4. Create shareable verification links that don't reveal the wallet address
-5. Verify proofs without exposing the original identity
+## Overview
+Ghost Protocol enables users to prove ownership of assets (NFTs, tokens) without revealing their identity. The system uses zero-knowledge proofs to create verifiable, anonymous attestations.
 
 ## Features
-
-- **Internet Computer Wallet Connection**: Connect to Plug wallet
-- **Comprehensive Asset Discovery**: View all your on-chain assets and activities
-- **Multiple Verification Types**:
-  - NFT ownership verification
-  - Token balance verification
-  - Transaction history verification
-  - Governance participation verification (coming soon)
-- **Anonymous References**: Generate unique reference IDs for sharing proofs
-- **Verification Pages**: Dedicated pages to verify proofs without exposing the original wallet
-
-## Technical Stack
-
-- **Frontend**: React, TypeScript, Tailwind CSS
-- **Backend**: Rust-based canisters on Internet Computer Protocol
-- **Blockchain Integration**: Internet Computer wallet connection (Plug)
+- Connect Internet Computer wallets (Plug)
+- Verify NFT ownership
+- Generate zero-knowledge proofs
+- Create anonymous attestation references
+- Verify proofs through anonymous links
 
 ## Getting Started
 
 ### Prerequisites
-
-- Node.js 16+
-- DFX 0.15.1+
-- Rust
-- Plug wallet browser extension
+- Node.js 18+
+- DFX 0.14.1+
+- Internet Computer Plug Wallet
 
 ### Installation
+1. Clone the repository:
+```bash
+git clone https://github.com/your-username/ghost-protocol.git
+cd ghost-protocol
+```
 
-1. Clone the repository
 2. Install dependencies:
-
 ```bash
 npm install
 ```
 
-3. Start the local development server:
-
+3. Configure environment:
 ```bash
+cp .env.example .env.local
+```
+
+4. Start local development:
+```bash
+dfx start --clean --background
+dfx deploy
 npm run dev
 ```
 
-4. Deploy to local ICP network:
+## Documentation
+- [Milestone 1: Core Proof System](docs/milestone1.md)
 
+## Testing
+Run the automated test suite:
 ```bash
-npm run deploy:local
+./scripts/run_milestone1_test.sh
 ```
 
-## Usage
+## Deployment
+Deploy to the Internet Computer mainnet:
+```bash
+dfx build --network ic
+dfx deploy --network ic
+```
 
-1. Connect your Internet Computer wallet using the "Connect Internet Computer Wallet" button
-2. Select the type of verification you want to create (NFT, Token, Transaction, Governance)
-3. Choose a specific item from your wallet to verify
-4. Click "Generate Zero-Knowledge Proof"
-5. Share the generated anonymous reference link
-
-## Security
-
-The system uses zero-knowledge proofs to verify ownership and activities without revealing the wallet address. All verification is done on-chain with the results stored in the canister.
+## Contributing
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-MIT 
+## Acknowledgments
+- Internet Computer Foundation
+- Dfinity Foundation
+- Zero-Knowledge Proof community 

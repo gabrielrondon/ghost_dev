@@ -3,6 +3,8 @@ import type { Task, WalletVerificationRequest, VerificationResult, InternetCompu
 import type { ICPToken, ICPTransaction } from '@/lib/wallet';
 import { canisterService } from './canister'
 import { Principal } from '@dfinity/principal'
+import type { NFTCanister, ZKCanister } from '@/declarations/interfaces'
+import { nftCanisterInterface, zkCanisterInterface } from '@/declarations/interfaces'
 
 // Mock storage to persist data during development
 const mockStorage = new Map<string, Task[]>();
@@ -151,75 +153,154 @@ function generateMerkleProof(items: bigint[]): { path: bigint[], indices: number
 }
 
 async function verifyNftOwnership(request: WalletVerificationRequest): Promise<VerificationResult> {
+  if (!request.itemId) {
+    throw new Error("NFT ID is required for verification")
+  }
+
   // Parse the NFT contract address and index
-  const [canisterId, indexStr] = (request.itemId || '').split('-')
+  const [canisterId, indexStr] = request.itemId.split('-')
+  if (!canisterId || !indexStr) {
+    throw new Error("Invalid NFT ID format. Expected format: canisterId-index")
+  }
+
   const nftIndex = parseInt(indexStr, 10)
-  
-  // Convert principal to bigint for the circuit
-  const principalBytes = Principal.fromText(request.walletAddress).toUint8Array()
-  const principalHex = Array.from(principalBytes)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-  const principalBigInt = BigInt('0x' + principalHex)
-  
-  // Generate Merkle proofs (in production, these would come from actual data)
-  const nftData = [principalBigInt, BigInt(nftIndex)]
-  const tokenData = [principalBigInt, BigInt(1000)] // Dummy token data
-  
-  const nftProof = generateMerkleProof(nftData)
-  const tokenProof = generateMerkleProof(tokenData)
-  
-  // Prepare input for the ZK circuit
-  const input = {
-    nft_merkle_path: nftProof.path,
-    minimum_balance: BigInt(0), // Not used for NFT verification
-    token_id: BigInt(nftIndex),
-    collection_id: BigInt('0x' + canisterId),
-    wallet_principal: principalBigInt,
-    token_canister_id: BigInt(0), // Not used for NFT verification
-    merkle_root: BigInt(0), // Will be computed by the circuit
-    nft_merkle_indices: nftProof.indices,
-    token_merkle_path: tokenProof.path,
-    actual_balance: BigInt(1), // For NFTs, this is always 1
-    token_merkle_indices: tokenProof.indices
+  if (isNaN(nftIndex)) {
+    throw new Error("Invalid NFT index")
   }
-  
-  // Generate the proof using the canister
-  const proofResult = await canisterService.generateProof(input)
-  
-  if (!proofResult.success) {
-    throw new Error(proofResult.error.message)
+
+  try {
+    // Get the NFT data from the canister
+    const nftCanister = await window.ic?.plug?.createActor<NFTCanister>({
+      canisterId,
+      interfaceFactory: nftCanisterInterface
+    })
+
+    if (!nftCanister) {
+      throw new Error("Failed to connect to NFT canister")
+    }
+
+    // Verify NFT ownership
+    const ownerResult = await nftCanister.ownerOf(nftIndex)
+    if ('err' in ownerResult) {
+      throw new Error(ownerResult.err || "Failed to verify NFT ownership")
+    }
+
+    const ownerPrincipal = ownerResult.ok
+    const requestPrincipal = Principal.fromText(request.walletAddress)
+
+    if (ownerPrincipal.toString() !== requestPrincipal.toString()) {
+      return {
+        isVerified: false,
+        proofId: generateProofId(),
+        timestamp: Date.now(),
+        anonymousReference: generateAnonymousRef(),
+        walletAddress: request.walletAddress,
+        chainId: request.chainId as 'icp' | 'eth',
+        itemType: 'nft',
+        itemId: request.itemId,
+        nftContractAddress: canisterId,
+        nftIndex,
+        principal: request.chainId === 'icp' ? request.walletAddress : undefined
+      }
+    }
+
+    // Get NFT metadata
+    const metadata = await nftCanister.tokenMetadata(nftIndex)
+    const nftName = metadata.name || `NFT #${nftIndex}`
+    const nftImageUrl = metadata.image || undefined
+
+    // Generate ZK proof
+    const principalBytes = requestPrincipal.toUint8Array()
+    const principalHex = Array.from(principalBytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+    const principalBigInt = BigInt('0x' + principalHex)
+
+    // Prepare input for the ZK circuit
+    const input = {
+      nft_merkle_path: generateMerklePath(principalBigInt, BigInt(nftIndex)),
+      minimum_balance: BigInt(0),
+      token_id: BigInt(nftIndex),
+      collection_id: BigInt('0x' + canisterId),
+      wallet_principal: principalBigInt,
+      token_canister_id: BigInt(0),
+      merkle_root: BigInt(0),
+      nft_merkle_indices: generateMerkleIndices(),
+      token_merkle_path: [],
+      actual_balance: BigInt(1),
+      token_merkle_indices: []
+    }
+
+    // Generate and verify the proof using the ZK canister
+    const zkCanister = await window.ic?.plug?.createActor<ZKCanister>({
+      canisterId: process.env.NEXT_PUBLIC_ZK_CANISTER_ID || '',
+      interfaceFactory: zkCanisterInterface
+    })
+
+    if (!zkCanister) {
+      throw new Error("Failed to connect to ZK canister")
+    }
+
+    const proofResult = await zkCanister.generateProof(input)
+    if ('err' in proofResult) {
+      throw new Error(proofResult.err || "Failed to generate proof")
+    }
+
+    const verificationResult = await zkCanister.verifyProof(
+      proofResult.ok.proof,
+      proofResult.ok.publicInputs
+    )
+
+    if ('err' in verificationResult) {
+      throw new Error(verificationResult.err || "Failed to verify proof")
+    }
+
+    // Create and return the verification result
+    const result: VerificationResult = {
+      isVerified: verificationResult.ok,
+      proofId: generateProofId(),
+      timestamp: Date.now(),
+      anonymousReference: generateAnonymousRef(),
+      walletAddress: request.walletAddress,
+      chainId: request.chainId as 'icp' | 'eth',
+      itemType: 'nft',
+      itemId: request.itemId,
+      nftContractAddress: canisterId,
+      nftIndex,
+      nftName,
+      nftImageUrl,
+      principal: request.chainId === 'icp' ? request.walletAddress : undefined
+    }
+
+    // Store the result for later verification
+    mockVerificationResults.set(result.proofId, result)
+
+    return result
+
+  } catch (error) {
+    console.error('NFT verification failed:', error)
+    throw new Error(error instanceof Error ? error.message : 'Failed to verify NFT ownership')
   }
-  
-  // Verify the proof
-  const verificationResult = await canisterService.verifyProof(
-    proofResult.result.proof,
-    proofResult.result.public_inputs
-  )
-  
-  if (!verificationResult.success) {
-    throw new Error(verificationResult.error.message)
-  }
-  
-  // Create the verification result
-  const result: VerificationResult = {
-    isVerified: verificationResult.isValid,
-    proofId: Math.random().toString(36).substring(2),
-    timestamp: Date.now(),
-    anonymousReference: Math.random().toString(36).substring(2),
-    walletAddress: request.walletAddress,
-    chainId: request.chainId as 'icp' | 'eth',
-    itemType: 'nft' as VerifiableItemType,
-    itemId: request.itemId || '',
-    nftContractAddress: canisterId,
-    nftIndex,
-    principal: request.chainId === 'icp' ? request.walletAddress : undefined
-  }
-  
-  // Store the result for later verification
-  mockVerificationResults.set(result.proofId, result)
-  
-  return result
+}
+
+function generateProofId(): string {
+  return `proof-${Date.now()}-${Math.random().toString(36).substring(2)}`
+}
+
+function generateAnonymousRef(): string {
+  return `anon-${Date.now()}-${Math.random().toString(36).substring(2)}`
+}
+
+function generateMerklePath(principal: bigint, tokenId: bigint): bigint[] {
+  // In production, this would fetch the actual Merkle path from the canister
+  // For now, we generate a simple path for testing
+  return [principal, tokenId, BigInt(0), BigInt(0)]
+}
+
+function generateMerkleIndices(): number[] {
+  // In production, this would be the actual indices in the Merkle tree
+  // For now, we return dummy indices for testing
+  return [0, 1, 0, 1]
 }
 
 async function assignTask(
