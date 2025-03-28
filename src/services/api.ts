@@ -300,7 +300,7 @@ async function verifyToken(
     // Get token details if available
     let tokenSymbol: string | undefined;
     let tokenName: string | undefined;
-    let tokenAmount: number | undefined;
+    let tokenAmount: string | undefined;
     
     if (request.itemId && request.chainId === 'icp' && mockIcpTokens.has('principal-123')) {
         const tokens = mockIcpTokens.get('principal-123') || [];
@@ -308,7 +308,7 @@ async function verifyToken(
         if (token) {
             tokenSymbol = token.symbol;
             tokenName = token.name;
-            tokenAmount = token.amount;
+            tokenAmount = token.amount.toString();
         }
     }
     
@@ -324,7 +324,7 @@ async function verifyToken(
         walletAddress: request.walletAddress,
         chainId: request.chainId,
         itemType: 'token',
-        itemId: request.itemId,
+        itemId: request.itemId || '',
         tokenSymbol,
         tokenName,
         tokenAmount,
@@ -337,45 +337,61 @@ async function verifyTransaction(
     proofId: string, 
     anonymousReference: string
 ): Promise<VerificationResult> {
-    // Get transaction details if available
-    let transactionHash: string | undefined;
-    let transactionType: string | undefined;
-    let transactionAmount: number | undefined;
-    let transactionToken: string | undefined;
-    let transactionTimestamp: number | undefined;
-    
-    if (request.itemId && request.chainId === 'icp' && mockIcpTransactions.has('principal-123')) {
-        const transactions = mockIcpTransactions.get('principal-123') || [];
-        const transaction = transactions.find(t => t.id === request.itemId);
-        if (transaction) {
-            transactionHash = transaction.hash;
-            transactionType = transaction.type;
-            transactionAmount = transaction.amount;
-            transactionToken = transaction.token;
-            transactionTimestamp = transaction.timestamp;
-        }
+    // Validate required fields
+    if (!request.walletAddress) {
+        throw new Error('Wallet address is required');
     }
-    
-    // For testing purposes, always verify if an itemId is provided
-    // In a real implementation, this would check if the transaction belongs to the wallet
-    const isVerified = !!request.itemId;
-    
-    return {
-        isVerified,
+
+    const itemId = request.itemId || `tx-${Date.now()}`; // Generate a fallback ID if none provided
+    const timestamp = Date.now();
+
+    // Initialize result with required fields
+    const result: VerificationResult = {
+        isVerified: true, // For testing purposes
         proofId,
-        timestamp: Date.now(),
+        timestamp,
         anonymousReference,
         walletAddress: request.walletAddress,
         chainId: request.chainId,
         itemType: 'transaction',
-        itemId: request.itemId,
-        transactionHash,
-        transactionType,
-        transactionAmount,
-        transactionToken,
-        transactionTimestamp,
-        principal: request.chainId === 'icp' ? request.walletAddress : undefined
+        itemId
     };
+    
+    if (request.chainId === 'icp' && mockIcpTransactions.has('principal-123')) {
+        const transactions = mockIcpTransactions.get('principal-123') || [];
+        const transaction = transactions.find(t => t.id === itemId);
+        if (transaction) {
+            // Add optional transaction fields if available
+            if (transaction.hash) {
+                result.transactionHash = transaction.hash;
+            }
+            
+            // Map transaction type to allowed values
+            switch (transaction.type) {
+                case 'send':
+                case 'receive':
+                case 'mint':
+                case 'burn':
+                    result.transactionType = transaction.type;
+                    break;
+                case 'other':
+                default:
+                    result.transactionType = 'send';
+                    break;
+            }
+            
+            result.transactionAmount = transaction.amount.toString();
+            result.transactionToken = transaction.token;
+            result.transactionTimestamp = transaction.timestamp;
+        }
+    }
+    
+    // Add principal for ICP chain
+    if (request.chainId === 'icp') {
+        result.principal = request.walletAddress;
+    }
+    
+    return result;
 }
 
 async function verifyGovernance(
@@ -383,25 +399,34 @@ async function verifyGovernance(
     proofId: string, 
     anonymousReference: string
 ): Promise<VerificationResult> {
-    // Mock governance verification
-    // In a real implementation, this would verify governance participation
-    
-    // For testing purposes, always verify if an itemId is provided
-    const isVerified = !!request.itemId;
-    
-    return {
-        isVerified,
+    // Validate required fields
+    if (!request.walletAddress) {
+        throw new Error('Wallet address is required');
+    }
+
+    const itemId = request.itemId || `gov-${Date.now()}`; // Generate a fallback ID if none provided
+    const timestamp = Date.now();
+
+    // Initialize result with required fields
+    const result: VerificationResult = {
+        isVerified: true, // For testing purposes
         proofId,
-        timestamp: Date.now(),
+        timestamp,
         anonymousReference,
         walletAddress: request.walletAddress,
         chainId: request.chainId,
         itemType: 'governance',
-        itemId: request.itemId,
-        proposalId: request.itemId,
-        voteType: request.additionalData?.voteType as 'yes' | 'no' | 'abstain' || 'yes',
-        principal: request.chainId === 'icp' ? request.walletAddress : undefined
+        itemId,
+        proposalId: itemId,
+        voteType: request.additionalData?.voteType as 'yes' | 'no' | 'abstain' || 'yes'
     };
+    
+    // Add principal for ICP chain
+    if (request.chainId === 'icp') {
+        result.principal = request.walletAddress;
+    }
+    
+    return result;
 }
 
 async function getVerificationProof(proofId: string): Promise<VerificationResult | null> {
