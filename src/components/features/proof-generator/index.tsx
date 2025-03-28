@@ -369,6 +369,20 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
           Generate anonymous proofs of your on-chain activity without revealing your wallet address.
         </p>
         
+        <div className="text-sm text-purple-300 bg-purple-900/20 p-3 rounded-md mb-4 flex items-center">
+          <svg 
+            className="h-4 w-4 mr-2 flex-shrink-0" 
+            viewBox="0 0 40 40" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M20 40C31.0457 40 40 31.0457 40 20C40 8.9543 31.0457 0 20 0C8.9543 0 0 8.9543 0 20C0 31.0457 8.9543 40 20 40Z" fill="white"/>
+            <path d="M29.4507 14.5559L29.4507 14.5559L29.4503 14.5564C29.0895 15.0415 28.5861 15.3852 28.0108 15.5487C28.5857 15.7114 29.0889 16.054 29.4498 16.5379C29.8106 17.0218 29.9999 17.6084 30 18.2126L30 26.875C30 27.7008 29.6708 28.493 29.0847 29.0792C28.4986 29.6653 27.7065 29.9945 26.8808 29.9945L13.1202 29.9945C12.2945 29.9945 11.5024 29.6653 10.9163 29.0792C10.3302 28.493 10.001 27.7008 10.001 26.875L10.001 13.125C10.001 12.2992 10.3302 11.507 10.9163 10.9208C11.5024 10.3347 12.2945 10.0055 13.1202 10.0055L26.8808 10.0055C27.7065 10.0055 28.4986 10.3347 29.0847 10.9208C29.6705 11.5066 29.9994 12.2981 30 13.123C29.9976 13.7318 29.8068 14.3214 29.4462 14.8067" fill="#29ABE2"/>
+            <path fillRule="evenodd" clipRule="evenodd" d="M17.9447 16.3391C17.4075 16.3391 16.9677 16.7789 16.9677 17.3161V18.3909C16.9677 18.9282 16.5279 19.368 15.9908 19.368C15.4536 19.368 15.0138 18.9282 15.0138 18.3909V17.3161C15.0138 15.7025 16.3313 14.3852 17.9447 14.3852H22.0553C23.6689 14.3852 24.9862 15.7025 24.9862 17.3161V22.6839C24.9862 24.2975 23.6689 25.6148 22.0553 25.6148H17.9447C16.3313 25.6148 15.0138 24.2975 15.0138 22.6839V21.6091C15.0138 21.0719 15.4536 20.632 15.9908 20.632C16.5279 20.632 16.9677 21.0719 16.9677 21.6091V22.6839C16.9677 22.6839 16.9677 23.2212 17.5049 23.661C18.0421 24.1007 17.9447 23.661 17.9447 23.661H22.0553C22.0553 23.661 22.5926 24.1007 23.1298 23.661C23.667 23.2212 23.5698 22.6839 23.5698 22.6839V17.3161C23.5698 17.3161 23.667 16.7789 23.1298 16.3391C22.5926 15.8993 22.0553 16.3391 22.0553 16.3391H17.9447Z" fill="white"/>
+          </svg>
+          <span>Currently only supports Plug wallet. Other Internet Computer wallets coming soon.</span>
+        </div>
+        
         {!walletInfo ? (
           <div className="space-y-6">
             <div className="text-center">
@@ -444,13 +458,48 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
                     Connecting to Internet Computer...
                   </>
                 ) : (
-                  'Connect Internet Computer Wallet'
+                  <>
+                    {/* SVG icon for Plug wallet */}
+                    <svg 
+                      className="h-5 w-5 mr-2" 
+                      viewBox="0 0 40 40" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M20 40C31.0457 40 40 31.0457 40 20C40 8.9543 31.0457 0 20 0C8.9543 0 0 8.9543 0 20C0 31.0457 8.9543 40 20 40Z" fill="white"/>
+                      <path d="M29.4507 14.5559L29.4507 14.5559L29.4503 14.5564C29.0895 15.0415 28.5861 15.3852 28.0108 15.5487C28.5857 15.7114 29.0889 16.054 29.4498 16.5379C29.8106 17.0218 29.9999 17.6084 30 18.2126L30 26.875C30 27.7008 29.6708 28.493 29.0847 29.0792C28.4986 29.6653 27.7065 29.9945 26.8808 29.9945L13.1202 29.9945C12.2945 29.9945 11.5024 29.6653 10.9163 29.0792C10.3302 28.493 10.001 27.7008 10.001 26.875L10.001 13.125C10.001 12.2992 10.3302 11.507 10.9163 10.9208C11.5024 10.3347 12.2945 10.0055 13.1202 10.0055L26.8808 10.0055C27.7065 10.0055 28.4986 10.3347 29.0847 10.9208C29.6705 11.5066 29.9994 12.2981 30 13.123C29.9976 13.7318 29.8068 14.3214 29.4462 14.8067" fill="#29ABE2"/>
+                      <path fillRule="evenodd" clipRule="evenodd" d="M17.9447 16.3391C17.4075 16.3391 16.9677 16.7789 16.9677 17.3161V18.3909C16.9677 18.9282 16.5279 19.368 15.9908 19.368C15.4536 19.368 15.0138 18.9282 15.0138 18.3909V17.3161C15.0138 15.7025 16.3313 14.3852 17.9447 14.3852H22.0553C23.6689 14.3852 24.9862 15.7025 24.9862 17.3161V22.6839C24.9862 24.2975 23.6689 25.6148 22.0553 25.6148H17.9447C16.3313 25.6148 15.0138 24.2975 15.0138 22.6839V21.6091C15.0138 21.0719 15.4536 20.632 15.9908 20.632C16.5279 20.632 16.9677 21.0719 16.9677 21.6091V22.6839C16.9677 22.6839 16.9677 23.2212 17.5049 23.661C18.0421 24.1007 17.9447 23.661 17.9447 23.661H22.0553C22.0553 23.661 22.5926 24.1007 23.1298 23.661C23.667 23.2212 23.5698 22.6839 23.5698 22.6839V17.3161C23.5698 17.3161 23.667 16.7789 23.1298 16.3391C22.5926 15.8993 22.0553 16.3391 22.0553 16.3391H17.9447Z" fill="white"/>
+                    </svg>
+                    Connect Plug Wallet
+                  </>
                 )}
               </button>
               
               {connectionError && (
                 <div className="mt-4 p-3 bg-red-900/20 border border-red-800 rounded-md max-w-md mx-auto">
                   <p className="text-red-300 text-sm">{connectionError}</p>
+                  {connectionError.includes('not detected') && (
+                    <div className="mt-2">
+                      <a 
+                        href="https://plugwallet.ooo/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-purple-400 hover:text-purple-300 underline text-sm flex items-center justify-center"
+                      >
+                        <svg 
+                          className="h-4 w-4 mr-1" 
+                          viewBox="0 0 40 40" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M20 40C31.0457 40 40 31.0457 40 20C40 8.9543 31.0457 0 20 0C8.9543 0 0 8.9543 0 20C0 31.0457 8.9543 40 20 40Z" fill="white"/>
+                          <path d="M29.4507 14.5559L29.4507 14.5559L29.4503 14.5564C29.0895 15.0415 28.5861 15.3852 28.0108 15.5487C28.5857 15.7114 29.0889 16.054 29.4498 16.5379C29.8106 17.0218 29.9999 17.6084 30 18.2126L30 26.875C30 27.7008 29.6708 28.493 29.0847 29.0792C28.4986 29.6653 27.7065 29.9945 26.8808 29.9945L13.1202 29.9945C12.2945 29.9945 11.5024 29.6653 10.9163 29.0792C10.3302 28.493 10.001 27.7008 10.001 26.875L10.001 13.125C10.001 12.2992 10.3302 11.507 10.9163 10.9208C11.5024 10.3347 12.2945 10.0055 13.1202 10.0055L26.8808 10.0055C27.7065 10.0055 28.4986 10.3347 29.0847 10.9208C29.6705 11.5066 29.9994 12.2981 30 13.123C29.9976 13.7318 29.8068 14.3214 29.4462 14.8067" fill="#29ABE2"/>
+                          <path fillRule="evenodd" clipRule="evenodd" d="M17.9447 16.3391C17.4075 16.3391 16.9677 16.7789 16.9677 17.3161V18.3909C16.9677 18.9282 16.5279 19.368 15.9908 19.368C15.4536 19.368 15.0138 18.9282 15.0138 18.3909V17.3161C15.0138 15.7025 16.3313 14.3852 17.9447 14.3852H22.0553C23.6689 14.3852 24.9862 15.7025 24.9862 17.3161V22.6839C24.9862 24.2975 23.6689 25.6148 22.0553 25.6148H17.9447C16.3313 25.6148 15.0138 24.2975 15.0138 22.6839V21.6091C15.0138 21.0719 15.4536 20.632 15.9908 20.632C16.5279 20.632 16.9677 21.0719 16.9677 21.6091V22.6839C16.9677 22.6839 16.9677 23.2212 17.5049 23.661C18.0421 24.1007 17.9447 23.661 17.9447 23.661H22.0553C22.0553 23.661 22.5926 24.1007 23.1298 23.661C23.667 23.2212 23.5698 22.6839 23.5698 22.6839V17.3161C23.5698 17.3161 23.667 16.7789 23.1298 16.3391C22.5926 15.8993 22.0553 16.3391 22.0553 16.3391H17.9447Z" fill="white"/>
+                        </svg>
+                        Install Plug Wallet
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -506,272 +555,4 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
                   selectedItemType === 'token' 
                     ? 'bg-purple-900/50 text-purple-300 border border-purple-500' 
                     : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
-                onClick={() => {
-                  setSelectedItemType('token')
-                  setSelectedItemId(null)
-                }}
-              >
-                <Wallet className="h-5 w-5 mb-1" />
-                Tokens
-              </button>
-              <button
-                className={`p-2 rounded-md flex flex-col items-center justify-center text-sm ${
-                  selectedItemType === 'transaction' 
-                    ? 'bg-purple-900/50 text-purple-300 border border-purple-500' 
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
-                onClick={() => {
-                  setSelectedItemType('transaction')
-                  setSelectedItemId(null)
-                }}
-              >
-                <ArrowUpRight className="h-5 w-5 mb-1" />
-                Txns
-              </button>
-              <button
-                className={`p-2 rounded-md flex flex-col items-center justify-center text-sm ${
-                  selectedItemType === 'governance' 
-                    ? 'bg-purple-900/50 text-purple-300 border border-purple-500' 
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
-                onClick={() => {
-                  setSelectedItemType('governance')
-                  setSelectedItemId(null)
-                }}
-              >
-                <Vote className="h-5 w-5 mb-1" />
-                Gov
-              </button>
-            </div>
-            
-            <div className="mb-4">
-              {renderVerifiableItems()}
-            </div>
-            
-            <button
-              onClick={handleVerify}
-              disabled={isVerifying || !selectedItemId || selectedItemType === 'transaction' || selectedItemType === 'governance'}
-              className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isVerifying ? (
-                <>
-                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                  Generating Proof...
-                </>
-              ) : selectedItemType === 'transaction' || selectedItemType === 'governance' ? (
-                'Coming Soon'
-              ) : (
-                'Generate Zero-Knowledge Proof'
-              )}
-            </button>
-          </div>
-        </>
-      )}
-      
-      {verificationResult && (
-        <div className="border border-gray-700 rounded-md p-4 bg-gray-800/50">
-          <div className="flex items-center mb-4">
-            {verificationResult.isVerified ? (
-              <CheckCircle2 className="h-6 w-6 text-green-400 mr-2" />
-            ) : (
-              <XCircle className="h-6 w-6 text-red-400 mr-2" />
-            )}
-            <h3 className="text-lg font-semibold">
-              {verificationResult.isVerified ? 'Proof Generated Successfully' : 'Proof Generation Failed'}
-            </h3>
-          </div>
-          
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm text-gray-400">Anonymous Reference ID</p>
-              <div className="flex items-center">
-                <p className="font-mono text-sm truncate mr-2 text-purple-400">{verificationResult.anonymousReference}</p>
-                <button 
-                  onClick={() => copyToClipboard(verificationResult.anonymousReference)}
-                  className="text-gray-400 hover:text-gray-300"
-                >
-                  {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            
-            <div>
-              <p className="text-sm text-gray-400">Proof ID</p>
-              <p className="font-mono text-sm truncate text-purple-400">{verificationResult.proofId}</p>
-            </div>
-            
-            <div>
-              <p className="text-sm text-gray-400">Timestamp</p>
-              <p className="text-sm">{new Date(verificationResult.timestamp).toLocaleString()}</p>
-            </div>
-            
-            <div className="pt-2">
-              <a 
-                href={`#/verify/${verificationResult.proofId}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  // In a real app, this would navigate to the verification page
-                  // For development, we'll create a formatted verification page
-                  
-                  // Create a formatted HTML page
-                  const html = `
-                  <!DOCTYPE html>
-                  <html lang="en">
-                  <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Zero-Knowledge Proof Verification</title>
-                    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-                    <style>
-                      body { background-color: #111827; color: #e5e7eb; font-family: system-ui, -apple-system, sans-serif; }
-                      .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
-                      .proof-card { background-color: #1f2937; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #374151; }
-                      .proof-header { display: flex; align-items: center; margin-bottom: 1.5rem; }
-                      .proof-icon { background-color: #374151; border-radius: 9999px; width: 3rem; height: 3rem; display: flex; align-items: center; justify-content: center; margin-right: 1rem; }
-                      .proof-title { font-size: 1.5rem; font-weight: 600; color: #f3f4f6; }
-                      .proof-subtitle { font-size: 1rem; color: #9ca3af; margin-top: 0.25rem; }
-                      .proof-status { display: flex; align-items: center; background-color: #065f46; color: #d1fae5; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 500; margin-left: auto; }
-                      .proof-status-icon { width: 1rem; height: 1rem; margin-right: 0.5rem; }
-                      .proof-section { margin-top: 1.5rem; }
-                      .proof-section-title { font-size: 1rem; font-weight: 500; color: #9ca3af; margin-bottom: 0.5rem; }
-                      .proof-detail { background-color: #374151; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem; }
-                      .proof-detail-label { font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem; }
-                      .proof-detail-value { font-size: 0.875rem; color: #e5e7eb; font-family: monospace; word-break: break-all; }
-                      .proof-detail-value.highlight { color: #a78bfa; }
-                      .proof-explanation { background-color: #374151; border-radius: 0.375rem; padding: 1rem; margin-top: 1.5rem; border-left: 4px solid #8b5cf6; }
-                      .footer { text-align: center; margin-top: 2rem; font-size: 0.875rem; color: #6b7280; }
-                    </style>
-                  </head>
-                  <body>
-                    <div class="container">
-                      <div class="proof-card">
-                        <div class="proof-header">
-                          <div class="proof-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-400">
-                              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path>
-                            </svg>
-                          </div>
-                          <div>
-                            <h1 class="proof-title">Validated Zero-Knowledge Proof</h1>
-                            <p class="proof-subtitle">Cryptographically verified without revealing identity</p>
-                          </div>
-                          <div class="proof-status">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="proof-status-icon">
-                              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                            Verified
-                          </div>
-                        </div>
-                        
-                        <div class="proof-section">
-                          <h2 class="proof-section-title">PROOF DETAILS</h2>
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">Proof Type</p>
-                            <p class="proof-detail-value">${verificationResult.itemType === 'nft' ? 'NFT Ownership' : 
-                                                           verificationResult.itemType === 'token' ? 'Token Balance' : 
-                                                           verificationResult.itemType === 'transaction' ? 'Transaction History' : 
-                                                           'Governance Participation'}</p>
-                          </div>
-                          
-                          ${verificationResult.itemType === 'nft' && verificationResult.nftName ? `
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">NFT Name</p>
-                            <p class="proof-detail-value highlight">${verificationResult.nftName}</p>
-                          </div>
-                          ` : ''}
-                          
-                          ${verificationResult.itemType === 'nft' && verificationResult.nftContractAddress ? `
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">NFT Collection</p>
-                            <p class="proof-detail-value">${verificationResult.nftContractAddress}</p>
-                          </div>
-                          ` : ''}
-                          
-                          ${verificationResult.itemType === 'token' && verificationResult.tokenName ? `
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">Token</p>
-                            <p class="proof-detail-value highlight">${verificationResult.tokenName} (${verificationResult.tokenSymbol})</p>
-                          </div>
-                          ` : ''}
-                          
-                          ${verificationResult.itemType === 'transaction' && verificationResult.transactionHash ? `
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">Transaction Type</p>
-                            <p class="proof-detail-value highlight">${verificationResult.transactionType}</p>
-                          </div>
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">Transaction Amount</p>
-                            <p class="proof-detail-value">${verificationResult.transactionAmount} ${verificationResult.transactionToken}</p>
-                          </div>
-                          ` : ''}
-                          
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">Blockchain</p>
-                            <p class="proof-detail-value">${verificationResult.chainId === 'icp' ? 'Internet Computer' : 'Ethereum'}</p>
-                          </div>
-                          
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">Verification Time</p>
-                            <p class="proof-detail-value">${new Date(verificationResult.timestamp).toLocaleString()}</p>
-                          </div>
-                          
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">Proof ID</p>
-                            <p class="proof-detail-value">${verificationResult.proofId}</p>
-                          </div>
-                          
-                          <div class="proof-detail">
-                            <p class="proof-detail-label">Anonymous Reference</p>
-                            <p class="proof-detail-value">${verificationResult.anonymousReference}</p>
-                          </div>
-                        </div>
-                        
-                        <div class="proof-explanation">
-                          <h2 class="proof-section-title">PROOF EXPLANATION</h2>
-                          <p class="text-sm text-gray-300 mt-2">
-                            This zero-knowledge proof verifies that the holder possesses ${
-                              verificationResult.itemType === 'nft' ? `the NFT "${verificationResult.nftName || 'specified'}" from collection "${verificationResult.nftContractAddress || 'specified'}"` : 
-                              verificationResult.itemType === 'token' ? `the specified amount of ${verificationResult.tokenName || verificationResult.tokenSymbol || 'tokens'}` :
-                              verificationResult.itemType === 'transaction' ? `a valid ${verificationResult.transactionType || ''} transaction of ${verificationResult.transactionAmount || ''} ${verificationResult.transactionToken || ''}` :
-                              'participation in governance activities'
-                            } on the ${verificationResult.chainId === 'icp' ? 'Internet Computer' : 'Ethereum'} blockchain.
-                          </p>
-                          <p class="text-sm text-gray-300 mt-2">
-                            The proof was cryptographically generated and verified without revealing the identity of the wallet owner.
-                            This allows the holder to prove ownership or activity without exposing their wallet address or other personal information.
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div class="footer">
-                        <p>Powered by Ghost Agent Zero-Knowledge Proof System</p>
-                        <p class="mt-1">This verification is cryptographically secure and tamper-proof.</p>
-                      </div>
-                    </div>
-                  </body>
-                  </html>
-                  `;
-                  
-                  // Create a blob and open it in a new window
-                  const blob = new Blob([html], { type: 'text/html' });
-                  const url = URL.createObjectURL(blob);
-                  window.open(url, '_blank');
-                }}
-                className="text-purple-400 hover:text-purple-300 text-sm flex items-center"
-              >
-                View Verification Page <ExternalLink className="h-3 w-3 ml-1" />
-              </a>
-              <p className="text-xs text-gray-500 mt-1">
-                (Opens a formatted verification page)
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-export { ProofGenerator }
+                }`
