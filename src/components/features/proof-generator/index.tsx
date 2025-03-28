@@ -65,17 +65,6 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
     setConnectionError(null)
     try {
       await onRefreshData(principal)
-      
-      // Store debug information
-      setDebugInfo(prev => ({
-        ...prev,
-        walletType: walletInfo?.walletType,
-        principal: walletInfo?.principal,
-        address: walletInfo?.address,
-        nftsCount: walletInfo?.nfts?.length || 0,
-        timestamp: new Date().toISOString()
-      }))
-      
     } catch (error) {
       console.error('Failed to fetch user data:', error)
       setConnectionError('Failed to load wallet data. Please try again.')
@@ -122,52 +111,37 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
   }
 
   async function handleCheckWalletDirectly() {
-    setIsRefreshing(true)
+    setIsRefreshing(true);
     try {
       if (!window.ic?.plug) {
-        toast.error('Plug wallet not detected')
-        return
+        toast.error('Plug wallet not detected');
+        return;
       }
       
       // Try to refresh the connection
-      const isConnected = await window.ic.plug.isConnected()
+      const isConnected = await window.ic.plug.isConnected();
       if (!isConnected) {
-        const connected = await window.ic.plug.requestConnect()
+        const connected = await window.ic.plug.requestConnect();
         if (!connected) {
-          toast.error('Failed to connect to Plug wallet')
-          return
+          toast.error('Failed to connect to Plug wallet');
+          return;
         }
       }
       
       // Try to get NFTs directly
-      toast.loading('Checking for NFTs in wallet...')
-      console.log('Requesting NFTs directly from Plug wallet')
-      const nfts = await window.ic.plug.getNFTs()
-      console.log('Direct NFT check result:', nfts)
-      
-      toast.dismiss()
-      toast.success(`Found ${nfts.length} NFT(s) in wallet`)
-      
-      setDebugInfo(prev => ({
-        ...prev,
-        directNftCheck: {
-          count: nfts.length,
-          data: nfts,
-          timestamp: new Date().toISOString()
-        }
-      }))
+      toast.loading('Checking your wallet status...');
       
       // If we have a principal, try to refresh the data through the normal path
       if (walletInfo?.principal) {
-        await fetchUserData(walletInfo.principal)
+        await fetchUserData(walletInfo.principal);
       }
       
     } catch (error) {
-      console.error('Failed to check wallet directly:', error)
-      toast.error(`Error checking wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Failed to check wallet directly:', error);
+      toast.error(`Error checking wallet: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      setIsRefreshing(false)
-      toast.dismiss()
+      setIsRefreshing(false);
+      toast.dismiss();
     }
   }
 
@@ -294,38 +268,10 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
               )}
             </button>
           </div>
-          
-          <div className="mt-4 text-xs text-gray-500 text-left p-2 bg-gray-800 rounded-md">
-            <p className="font-semibold text-gray-400 mb-2">Debugging info:</p>
-            <p>Principal: {walletInfo?.principal || 'Not available'}</p>
-            <p>Address: {walletInfo?.address || 'Not available'}</p>
-            <p>Wallet Type: {walletInfo?.walletType || 'Not available'}</p>
-            <p>Chain ID: {walletInfo?.chainId || 'Not available'}</p>
-            <p>Is Connected: {walletInfo?.isConnected ? 'Yes' : 'No'}</p>
-            <p className="mt-2 font-semibold text-gray-400">Tokens Debug:</p>
-            <p>Token Count: {walletInfo?.tokens?.length || 0}</p>
-            <p>Token Array Type: {walletInfo?.tokens ? typeof walletInfo.tokens : 'undefined'}</p>
-            
-            <div className="mt-2">
-              <p className="font-semibold text-gray-400">Full Wallet Info:</p>
-              <pre className="mt-1 overflow-auto bg-gray-900 p-2 rounded text-gray-300 text-xs">
-                {JSON.stringify(walletInfo, null, 2)}
-              </pre>
-            </div>
-            
-            <div className="mt-2">
-              <p className="font-semibold text-gray-400">Debug Info:</p>
-              <pre className="mt-1 overflow-auto bg-gray-900 p-2 rounded text-gray-300 text-xs">
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
-            </div>
-          </div>
         </div>
       )
     }
 
-    console.log('Rendering tokens:', walletInfo.tokens);
-    
     return (
       <div className="grid grid-cols-1 gap-3">
         <div className="col-span-1 mb-2 p-2 bg-gray-800/50 rounded-md">
@@ -334,7 +280,6 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
         
         {walletInfo.tokens.map((token) => {
           const tokenId = `${token.symbol}:${token.amount}`;
-          console.log('Token ID for selection:', tokenId, 'Token data:', token);
           
           // Format the token amount with proper decimal places
           const formattedAmount = parseFloat(token.amount).toLocaleString(undefined, {
