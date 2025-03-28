@@ -12,7 +12,8 @@ vi.mock('@/components/WalletContext', () => {
       disconnect: vi.fn(),
       isConnecting: false,
       error: null,
-      walletInfo: null
+      walletInfo: null,
+      activeWallet: null
     }))
   }
 })
@@ -28,7 +29,8 @@ describe('WalletConnect', () => {
       disconnect: vi.fn(),
       isConnecting: true,
       error: null,
-      walletInfo: null
+      walletInfo: null,
+      activeWallet: null
     });
     
     const { container } = render(<WalletConnect />);
@@ -48,7 +50,8 @@ describe('WalletConnect', () => {
       disconnect: vi.fn(),
       isConnecting: false,
       error: mockError,
-      walletInfo: null
+      walletInfo: null,
+      activeWallet: null
     });
     
     const { container } = render(<WalletConnect />);
