@@ -3,8 +3,9 @@ import type { Task, WalletVerificationRequest, VerificationResult, InternetCompu
 import type { ICPToken, ICPTransaction } from '@/lib/wallet';
 import { canisterService } from './canister'
 import { Principal } from '@dfinity/principal'
-import type { NFTCanister, ZKCanister } from '@/declarations/interfaces'
-import { nftCanisterInterface, zkCanisterInterface } from '@/declarations/interfaces'
+import type { NFTCanister } from '@/declarations/interfaces'
+import { nftCanisterInterface } from '@/declarations/interfaces'
+import { Actor, HttpAgent } from '@dfinity/agent'
 
 // Mock storage to persist data during development
 const mockStorage = new Map<string, Task[]>();
@@ -59,24 +60,28 @@ const sampleNfts: InternetComputerNft[] = [
 // Sample ICP tokens for testing
 const sampleTokens: ICPToken[] = [
   {
+    id: 'icp-1',
     symbol: 'ICP',
-    amount: 15.75,
+    amount: '15.75',
     decimals: 8,
-    name: 'Internet Computer'
+    name: 'Internet Computer',
+    balance: '15750000000'
   },
   {
+    id: 'ckbtc-1',
     symbol: 'ckBTC',
-    amount: 0.025,
+    amount: '0.025',
     decimals: 8,
     name: 'Chain Key Bitcoin',
-    canisterId: 'mxzaz-hqaaa-aaaar-qaada-cai'
+    balance: '2500000'
   },
   {
+    id: 'chat-1',
     symbol: 'CHAT',
-    amount: 1250,
+    amount: '1250',
     decimals: 8,
     name: 'DFINITY Chat Token',
-    canisterId: 'tyyy3-4aaaa-aaaaq-aabsq-cai'
+    balance: '125000000000'
   }
 ];
 
@@ -84,51 +89,25 @@ const sampleTokens: ICPToken[] = [
 const sampleTransactions: ICPTransaction[] = [
   {
     id: 'tx-1',
-    timestamp: Date.now() - (1 * 86400000), // 1 day ago
-    type: 'receive',
-    from: 'principal-sender-123',
-    to: 'principal-123',
-    amount: 5.25,
+    type: 'send',
+    amount: '100',
     token: 'ICP',
-    status: 'completed',
-    hash: '0x123456789abcdef',
-    blockHeight: 12345678
+    timestamp: Date.now().toString(),
+    blockHeight: '12345',
+    from: 'principal-123',
+    to: 'principal-456',
+    status: 'completed'
   },
   {
     id: 'tx-2',
-    timestamp: Date.now() - (2 * 86400000), // 2 days ago
-    type: 'send',
-    from: 'principal-123',
-    to: 'principal-receiver-456',
-    amount: 1.5,
-    token: 'ICP',
-    status: 'completed',
-    hash: '0x987654321fedcba',
-    blockHeight: 12345670
-  },
-  {
-    id: 'tx-3',
-    timestamp: Date.now() - (5 * 86400000), // 5 days ago
     type: 'receive',
-    from: 'nft-canister-789',
-    to: 'principal-123',
-    amount: 0,
-    token: 'NFT',
-    status: 'completed',
-    hash: '0xabcdef123456789',
-    blockHeight: 12345600
-  },
-  {
-    id: 'tx-4',
-    timestamp: Date.now() - (10 * 86400000), // 10 days ago
-    type: 'send',
-    from: 'principal-123',
-    to: 'governance-canister-xyz',
-    amount: 10,
+    amount: '50',
     token: 'ICP',
-    status: 'completed',
-    hash: '0xfedcba987654321',
-    blockHeight: 12345500
+    timestamp: Date.now().toString(),
+    blockHeight: '12346',
+    from: 'principal-789',
+    to: 'principal-123',
+    status: 'completed'
   }
 ];
 
@@ -152,135 +131,58 @@ function generateMerkleProof(items: bigint[]): { path: bigint[], indices: number
   }
 }
 
-async function verifyNftOwnership(request: WalletVerificationRequest): Promise<VerificationResult> {
-  if (!request.itemId) {
-    throw new Error("NFT ID is required for verification")
-  }
-
-  // Parse the NFT contract address and index
-  const [canisterId, indexStr] = request.itemId.split('-')
-  if (!canisterId || !indexStr) {
-    throw new Error("Invalid NFT ID format. Expected format: canisterId-index")
-  }
-
-  const nftIndex = parseInt(indexStr, 10)
-  if (isNaN(nftIndex)) {
-    throw new Error("Invalid NFT index")
-  }
-
-  try {
-    // Get the NFT data from the canister
-    const nftCanister = await window.ic?.plug?.createActor<NFTCanister>({
-      canisterId,
-      interfaceFactory: nftCanisterInterface
-    })
-
-    if (!nftCanister) {
-      throw new Error("Failed to connect to NFT canister")
+async function getNFTCanister(canisterId: string): Promise<NFTCanister> {
+    const agent = new HttpAgent()
+    if (process.env.NODE_ENV !== 'production') {
+        await agent.fetchRootKey()
     }
+    return Actor.createActor(nftCanisterInterface, { agent, canisterId })
+}
 
-    // Verify NFT ownership
-    const ownerResult = await nftCanister.ownerOf(nftIndex)
-    if ('err' in ownerResult) {
-      throw new Error(ownerResult.err || "Failed to verify NFT ownership")
+async function verifyNftOwnership(
+    request: WalletVerificationRequest,
+    proofId: string,
+    anonymousReference: string
+): Promise<VerificationResult> {
+    // Check required fields
+    if (!request.walletAddress) throw new Error('Wallet address is required')
+    if (!request.itemId) throw new Error('Item ID is required')
+    if (request.chainId !== 'icp') throw new Error('Invalid chain ID')
+
+    // Parse itemId to get canisterId and nftIndex
+    const [canisterId, nftIndexStr] = request.itemId.split(':')
+    if (!canisterId || !nftIndexStr) throw new Error('Invalid item ID format')
+    
+    const nftIndex = parseInt(nftIndexStr, 10)
+    if (isNaN(nftIndex)) throw new Error('Invalid NFT index')
+
+    try {
+        const nftCanister = await getNFTCanister(canisterId)
+        const ownerResult = await nftCanister.ownerOf(nftIndex)
+        if ('err' in ownerResult) throw new Error(ownerResult.err)
+        if (ownerResult.ok.toString() !== request.walletAddress) throw new Error('NFT not owned by wallet')
+
+        const metadata = await nftCanister.tokenMetadata(nftIndex)
+        
+        return {
+            isVerified: true,
+            proofId,
+            timestamp: Date.now(),
+            anonymousReference,
+            walletAddress: request.walletAddress,
+            chainId: request.chainId,
+            itemType: 'nft',
+            itemId: request.itemId,
+            nftContractAddress: canisterId,
+            nftIndex,
+            nftName: metadata.name,
+            nftImageUrl: metadata.image || undefined,
+            principal: request.walletAddress
+        }
+    } catch (error) {
+        console.error('NFT verification error:', error)
+        throw new Error('Failed to verify NFT ownership')
     }
-
-    const ownerPrincipal = ownerResult.ok
-    const requestPrincipal = Principal.fromText(request.walletAddress)
-
-    if (ownerPrincipal.toString() !== requestPrincipal.toString()) {
-      return {
-        isVerified: false,
-        proofId: generateProofId(),
-        timestamp: Date.now(),
-        anonymousReference: generateAnonymousRef(),
-        walletAddress: request.walletAddress,
-        chainId: request.chainId as 'icp' | 'eth',
-        itemType: 'nft',
-        itemId: request.itemId,
-        nftContractAddress: canisterId,
-        nftIndex,
-        principal: request.chainId === 'icp' ? request.walletAddress : undefined
-      }
-    }
-
-    // Get NFT metadata
-    const metadata = await nftCanister.tokenMetadata(nftIndex)
-    const nftName = metadata.name || `NFT #${nftIndex}`
-    const nftImageUrl = metadata.image || undefined
-
-    // Generate ZK proof
-    const principalBytes = requestPrincipal.toUint8Array()
-    const principalHex = Array.from(principalBytes)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-    const principalBigInt = BigInt('0x' + principalHex)
-
-    // Prepare input for the ZK circuit
-    const input = {
-      nft_merkle_path: generateMerklePath(principalBigInt, BigInt(nftIndex)),
-      minimum_balance: BigInt(0),
-      token_id: BigInt(nftIndex),
-      collection_id: BigInt('0x' + canisterId),
-      wallet_principal: principalBigInt,
-      token_canister_id: BigInt(0),
-      merkle_root: BigInt(0),
-      nft_merkle_indices: generateMerkleIndices(),
-      token_merkle_path: [],
-      actual_balance: BigInt(1),
-      token_merkle_indices: []
-    }
-
-    // Generate and verify the proof using the ZK canister
-    const zkCanister = await window.ic?.plug?.createActor<ZKCanister>({
-      canisterId: process.env.NEXT_PUBLIC_ZK_CANISTER_ID || '',
-      interfaceFactory: zkCanisterInterface
-    })
-
-    if (!zkCanister) {
-      throw new Error("Failed to connect to ZK canister")
-    }
-
-    const proofResult = await zkCanister.generateProof(input)
-    if ('err' in proofResult) {
-      throw new Error(proofResult.err || "Failed to generate proof")
-    }
-
-    const verificationResult = await zkCanister.verifyProof(
-      proofResult.ok.proof,
-      proofResult.ok.publicInputs
-    )
-
-    if ('err' in verificationResult) {
-      throw new Error(verificationResult.err || "Failed to verify proof")
-    }
-
-    // Create and return the verification result
-    const result: VerificationResult = {
-      isVerified: verificationResult.ok,
-      proofId: generateProofId(),
-      timestamp: Date.now(),
-      anonymousReference: generateAnonymousRef(),
-      walletAddress: request.walletAddress,
-      chainId: request.chainId as 'icp' | 'eth',
-      itemType: 'nft',
-      itemId: request.itemId,
-      nftContractAddress: canisterId,
-      nftIndex,
-      nftName,
-      nftImageUrl,
-      principal: request.chainId === 'icp' ? request.walletAddress : undefined
-    }
-
-    // Store the result for later verification
-    mockVerificationResults.set(result.proofId, result)
-
-    return result
-
-  } catch (error) {
-    console.error('NFT verification failed:', error)
-    throw new Error(error instanceof Error ? error.message : 'Failed to verify NFT ownership')
-  }
 }
 
 function generateProofId(): string {
@@ -442,28 +344,10 @@ async function verifyTransaction(
         const transactions = mockIcpTransactions.get('principal-123') || [];
         const transaction = transactions.find(t => t.id === itemId);
         if (transaction) {
-            // Add optional transaction fields if available
-            if (transaction.hash) {
-                result.transactionHash = transaction.hash;
-            }
-            
-            // Map transaction type to allowed values
-            switch (transaction.type) {
-                case 'send':
-                case 'receive':
-                case 'mint':
-                case 'burn':
-                    result.transactionType = transaction.type;
-                    break;
-                case 'other':
-                default:
-                    result.transactionType = 'send';
-                    break;
-            }
-            
-            result.transactionAmount = transaction.amount.toString();
+            result.transactionType = transaction.type;
+            result.transactionAmount = transaction.amount;
             result.transactionToken = transaction.token;
-            result.transactionTimestamp = transaction.timestamp;
+            result.transactionTimestamp = parseInt(transaction.timestamp);
         }
     }
     
@@ -533,29 +417,23 @@ async function getTransactionsForPrincipal(principal: string): Promise<ICPTransa
     return mockIcpTransactions.get(principal) || sampleTransactions; // Return sample transactions for testing
 }
 
-// Wallet Connection Functions
-export async function connectWallet(chain: string): Promise<WalletInfo | null> {
-  await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
-  return {
-    address: 'principal-123',
-    chainId: 'icp',
-    chainName: 'Internet Computer',
-    isConnected: true
-  };
+// Mock implementations for testing
+export function connectWallet() {
+    return Promise.resolve({
+        principal: 'test-principal',
+        accountId: 'test-account'
+    })
 }
 
-export async function disconnectWallet(): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
+export function disconnectWallet() {
+    return Promise.resolve()
 }
 
-export async function getCurrentWalletInfo(): Promise<WalletInfo | null> {
-  await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
-  return {
-    address: 'principal-123',
-    chainId: 'icp',
-    chainName: 'Internet Computer',
-    isConnected: true
-  };
+export function getCurrentWalletInfo() {
+    return {
+        principal: 'test-principal',
+        accountId: 'test-account'
+    }
 }
 
 export { 
@@ -564,9 +442,12 @@ export {
     getTasks, 
     executeTasks, 
     deleteReference,
-    verifyNftOwnership,
     getVerificationProof,
     getNftsForPrincipal,
     getTokensForPrincipal,
-    getTransactionsForPrincipal
+    getTransactionsForPrincipal,
+    verifyNftOwnership,
+    verifyToken,
+    verifyTransaction,
+    verifyGovernance
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Shield } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { ProofGenerator } from '@/components/features/proof-generator';

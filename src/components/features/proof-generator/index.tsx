@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { verifyNftOwnership } from '@/services/api'
 import { Shield, CheckCircle2, XCircle, Loader2, Copy, ExternalLink, Image, Wallet, ArrowUpRight, ArrowDownLeft, Vote, AlertTriangle, RefreshCw } from 'lucide-react'
 import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet'
-import { verifyNftOwnership, getVerificationProof } from '@/services/api'
 import type { VerificationResult, VerifiableItemType } from '@/types/proof'
 import toast from 'react-hot-toast'
 

@@ -32,43 +32,47 @@ declare global {
 }
 
 export interface ICPToken {
-  symbol: string
-  amount: number
-  decimals: number
+  id: string
   name: string
-  canisterId?: string
+  symbol: string
+  balance: string
+  decimals: number
+  amount: string
 }
 
 export interface ICPTransaction {
   id: string
-  timestamp: number
-  type: 'send' | 'receive' | 'mint' | 'burn' | 'other'
+  type: 'send' | 'receive' | 'swap' | 'mint' | 'burn'
+  amount: string
+  token: string
+  timestamp: string
+  blockHeight: string
   from?: string
   to?: string
-  amount: number
-  token: string
   status: 'completed' | 'pending' | 'failed'
-  hash?: string
-  blockHeight?: number
 }
 
 export interface WalletInfo {
-  address: string
+  isConnected: boolean
   principal?: string
   accountId?: string
-  isConnected: boolean
-  walletType: 'ethereum' | 'internetComputer'
+  address: string
+  balance?: string
+  network?: string
+  walletType: 'internetComputer' | 'ethereum'
+  chainId: 'icp' | 'eth'
+  chainName: string
+  nfts?: NFTInfo[]
   tokens?: ICPToken[]
-  nfts?: Array<{
-    canisterId: string
-    index: number
-    name: string
-    url: string
-    metadata?: any
-  }>
   transactions?: ICPTransaction[]
-  chainId?: string
-  chainName?: string
+}
+
+export interface NFTInfo {
+  canisterId: string
+  index: number
+  name: string
+  url?: string
+  collection?: string
 }
 
 export async function connectWallet(walletType: 'ethereum' | 'internetComputer' = 'internetComputer'): Promise<WalletInfo | null> {
@@ -110,10 +114,12 @@ export async function connectWallet(walletType: 'ethereum' | 'internetComputer' 
       // Get token balances
       const balances = await window.ic.plug.getBalance();
       const tokens = balances.map(balance => ({
+        id: `${balance.currency.toLowerCase()}-token`,
+        name: balance.currency === 'ICP' ? 'Internet Computer' : balance.currency,
         symbol: balance.currency,
-        amount: balance.amount,
+        balance: balance.amount.toString(),
         decimals: 8, // Default for ICP
-        name: balance.currency === 'ICP' ? 'Internet Computer' : balance.currency
+        amount: balance.amount.toString()
       }));
       
       // Get transactions
@@ -127,7 +133,6 @@ export async function connectWallet(walletType: 'ethereum' | 'internetComputer' 
         amount: tx.amount?.toString() || '0',
         token: tx.token || 'ICP',
         status: tx.status || 'completed',
-        hash: tx.hash,
         blockHeight: tx.blockHeight || 0
       }));
       
@@ -139,13 +144,15 @@ export async function connectWallet(walletType: 'ethereum' | 'internetComputer' 
         walletType: 'internetComputer',
         chainId: 'icp',
         chainName: 'Internet Computer',
+        network: 'mainnet',
+        balance: tokens[0]?.balance || '0',
         tokens,
         nfts: nfts.map((nft: any) => ({
           canisterId: nft.canister || nft.canisterId,
           index: nft.index || 0,
           name: nft.name || `NFT #${nft.index}`,
           url: nft.url || '',
-          metadata: nft.metadata || {}
+          collection: nft.collection || 'Unknown'
         })),
         transactions
       };
@@ -178,7 +185,12 @@ export async function connectWallet(walletType: 'ethereum' | 'internetComputer' 
         isConnected: true,
         walletType: 'ethereum',
         chainId: 'eth',
-        chainName
+        chainName,
+        network: chainName.toLowerCase(),
+        balance: '0', // Will be updated with actual balance
+        tokens: [], // Will be populated with ERC20 tokens
+        nfts: [], // Will be populated with NFTs
+        transactions: [] // Will be populated with transactions
       };
 
       // Store the wallet info in the secure wallet handler

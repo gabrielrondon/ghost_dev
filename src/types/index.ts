@@ -12,7 +12,7 @@ export interface WalletVerificationRequest {
 
 export interface VerificationResult {
   id: string
-  timestamp: number
+  timestamp: string
   status: 'verified' | 'failed' | 'pending'
   request: WalletVerificationRequest
   attestation?: {
@@ -27,6 +27,7 @@ export interface Task {
   id: string
   type: string
   status: 'pending' | 'running' | 'completed' | 'failed'
+  timestamp: string
   config: Record<string, unknown>
   result?: {
     success: boolean

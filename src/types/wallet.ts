@@ -35,9 +35,11 @@ export interface ICPTransaction {
   type: 'send' | 'receive' | 'swap' | 'mint' | 'burn'
   amount: string
   token: string
-  timestamp: number
-  blockHeight: number
+  timestamp: string
+  blockHeight: string
   from?: string
   to?: string
   status: 'completed' | 'pending' | 'failed'
-} 
+}
+
+export type ICPTransactionType = ICPTransaction['type'] 
