@@ -5,7 +5,7 @@ export interface WalletInfo {
   address: string
   balance?: string
   network?: string
-  walletType: 'internetComputer' | 'ethereum'
+  walletType: 'internetComputer' | 'ethereum' | 'stoic' | 'plug'
   chainId: 'icp' | 'eth'
   chainName: string
   nfts?: NFTInfo[]

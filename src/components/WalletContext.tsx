@@ -2,8 +2,15 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet';
 import toast from 'react-hot-toast';
 import { getICPTokenData, ICP_LEDGER_CANISTER_ID } from '@/services/ledger';
+import { 
+  connectToStoicWallet, 
+  disconnectFromStoicWallet, 
+  getStoicBalances,
+  type StoicConnectionResult
+} from '@/services/stoic-wallet';
 import { Principal } from '@dfinity/principal';
 import { IDL } from '@dfinity/candid';
+import { type WalletType } from './WalletSelector';
 
 // Constants
 const ZK_CANISTER_ID = import.meta.env.VITE_ZK_CANISTER_ID || 'hjhzy-qyaaa-aaaak-qc3nq-cai';
@@ -102,10 +109,11 @@ const withRetry = async <T,>(
 export interface WalletContextType {
   isConnected: boolean;
   isConnecting: boolean;
-  connect: () => Promise<any>;
+  connect: (walletType?: WalletType) => Promise<any>;
   disconnect: () => Promise<void>;
   error: Error | null;
   walletInfo: WalletInfo | null;
+  activeWallet: WalletType | null;
 }
 
 // Define the shape of wallet data returned from connect
@@ -115,6 +123,7 @@ interface WalletData {
   nfts: any[];
   tokens: ICPToken[];
   usingMockData: boolean;
+  walletType: WalletType;
 }
 
 interface ICPlug {
@@ -138,7 +147,8 @@ const defaultWalletContext: WalletContextType = {
   connect: async () => null,
   disconnect: async () => {},
   error: null,
-  walletInfo: null
+  walletInfo: null,
+  activeWallet: null
 };
 
 const WalletContext = createContext<WalletContextType>(defaultWalletContext);
@@ -148,6 +158,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [connectionCheckerInterval, setConnectionCheckerInterval] = useState<number | null>(null);
+  const [activeWallet, setActiveWallet] = useState<WalletType | null>(null);
 
   // Function to refresh wallet data
   const refreshData = async () => {
@@ -156,7 +167,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // For now it's just a placeholder
   };
 
-  // Function to check connection status periodically
+  // Function to check connection status periodically for Plug
   const startConnectionMonitoring = (plug: ICPlug) => {
     // Clear any existing interval
     if (connectionCheckerInterval) {
@@ -172,6 +183,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           if (!connected && walletInfo?.isConnected) {
             console.warn('Wallet disconnected unexpectedly');
             setWalletInfo(null);
+            setActiveWallet(null);
             toast.error('Wallet disconnected. Please reconnect.');
             window.clearInterval(intervalId);
             setConnectionCheckerInterval(null);
@@ -199,10 +211,74 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
   }, [connectionCheckerInterval]);
 
-  const connect = async () => {
-    setIsConnecting(true);
-    setError(null);
-    
+  // Connect to Stoic Wallet
+  const connectStoic = async (): Promise<WalletData | null> => {
+    try {
+      console.log('Connecting to Stoic wallet...');
+      
+      // Connect to Stoic
+      const { principal, agent } = await withRetry(
+        () => connectToStoicWallet(),
+        3,
+        1000,
+        'connectToStoicWallet'
+      );
+      
+      const principalText = principal.toString();
+      console.log('Connected to Stoic wallet with principal:', principalText);
+      
+      // Fetch balances
+      const tokens = await withRetry(
+        () => getStoicBalances(agent, principal),
+        2,
+        1000,
+        'getStoicBalances'
+      );
+      
+      // Use empty NFTs array since Stoic doesn't have built-in NFT support
+      const nfts: any[] = [];
+      
+      // Prepare the wallet data
+      const walletData: WalletData = {
+        principal: principalText,
+        accountId: '', // Stoic doesn't provide an account ID in the standard format
+        nfts,
+        tokens,
+        usingMockData: false,
+        walletType: 'stoic'
+      };
+
+      // Update the context state
+      setWalletInfo({
+        isConnected: true,
+        principal: principalText,
+        address: principalText, // Use principal as address
+        chainId: 'icp',
+        chainName: 'Internet Computer',
+        walletType: 'stoic',
+        tokens,
+        transactions: []
+      });
+      
+      // Set active wallet
+      setActiveWallet('stoic');
+      
+      // Save connection state
+      localStorage.setItem('wallet_connected', 'true');
+      localStorage.setItem('wallet_type', 'stoic');
+      
+      toast.success('Successfully connected to Stoic wallet');
+      
+      return walletData;
+    } catch (error) {
+      console.error('Error connecting to Stoic wallet:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to connect to Stoic wallet');
+      throw error;
+    }
+  };
+
+  // Connect to Plug Wallet
+  const connectPlug = async (): Promise<WalletData | null> => {
     try {
       // Improved Plug wallet detection with timeout
       const plugExists = await checkForPlugWallet();
@@ -429,6 +505,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         nfts,
         tokens,
         usingMockData: usingMockTokens,
+        walletType: 'plug'
       };
       
       console.log('Wallet data prepared:', walletData);
@@ -440,27 +517,54 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         address: accountId || principalText,
         chainId: 'icp',
         chainName: 'Internet Computer',
-        walletType: 'internetComputer',
+        walletType: 'plug',
         tokens,
         transactions: []
       });
       
+      // Set active wallet
+      setActiveWallet('plug');
+      
       // Save connection state
       localStorage.setItem('wallet_connected', 'true');
+      localStorage.setItem('wallet_type', 'plug');
       
       // Start connection monitoring
       startConnectionMonitoring(plug);
       
-      // Trigger data refresh after connection
-      await refreshData();
-      
-      // Return the wallet data
       return walletData;
     } catch (error) {
       console.error('Connection error:', error);
-      setError(error instanceof Error ? error : new Error('Unknown connection error'));
-      toast.error(error instanceof Error ? error.message : 'Failed to connect to wallet');
+      throw error;
+    }
+  };
+
+  const connect = async (walletType: WalletType = 'stoic') => {
+    setIsConnecting(true);
+    setError(null);
+    
+    try {
+      let result = null;
+      
+      if (walletType === 'stoic') {
+        result = await connectStoic();
+      } else if (walletType === 'plug') {
+        result = await connectPlug();
+      } else {
+        throw new Error(`Unsupported wallet type: ${walletType}`);
+      }
+      
+      // Trigger data refresh after connection
+      await refreshData();
+      
+      // Return the result
+      return result;
+    } catch (error) {
+      console.error(`Error connecting to ${walletType} wallet:`, error);
+      setError(error instanceof Error ? error : new Error(`Unknown ${walletType} connection error`));
+      toast.error(error instanceof Error ? error.message : `Failed to connect to ${walletType} wallet`);
       setWalletInfo(null);
+      setActiveWallet(null);
       return null;
     } finally {
       setIsConnecting(false);
@@ -469,18 +573,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const disconnect = async () => {
     try {
-      // Use type assertion to check for plug wallet
-      if (window.hasOwnProperty('ic') && (window as any).ic?.hasOwnProperty('plug')) {
-        const plug = (window as any).ic.plug as ICPlug;
-        if (typeof plug.disconnect === 'function') {
-          await plug.disconnect();
+      // Handle disconnection based on active wallet
+      if (activeWallet === 'stoic') {
+        await disconnectFromStoicWallet();
+      } else if (activeWallet === 'plug') {
+        // Disconnect from Plug
+        if (window.hasOwnProperty('ic') && (window as any).ic?.hasOwnProperty('plug')) {
+          const plug = (window as any).ic.plug as ICPlug;
+          if (typeof plug.disconnect === 'function') {
+            await plug.disconnect();
+          }
         }
-      }
-      
-      // Clear connection monitoring interval
-      if (connectionCheckerInterval) {
-        window.clearInterval(connectionCheckerInterval);
-        setConnectionCheckerInterval(null);
+        
+        // Clear connection monitoring interval
+        if (connectionCheckerInterval) {
+          window.clearInterval(connectionCheckerInterval);
+          setConnectionCheckerInterval(null);
+        }
       }
     } catch (error) {
       console.error('Error during disconnect:', error);
@@ -488,9 +597,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     
     // Clear wallet state
     setWalletInfo(null);
+    setActiveWallet(null);
     localStorage.removeItem('wallet_connected');
+    localStorage.removeItem('wallet_type');
     toast.success('Wallet disconnected');
   };
+
+  // Try to restore session on component mount
+  useEffect(() => {
+    const isConnected = localStorage.getItem('wallet_connected') === 'true';
+    const savedWalletType = localStorage.getItem('wallet_type') as WalletType | null;
+    
+    if (isConnected && savedWalletType) {
+      // Auto-connect based on saved wallet type
+      connect(savedWalletType).catch(error => {
+        console.error('Failed to auto-connect wallet:', error);
+        localStorage.removeItem('wallet_connected');
+        localStorage.removeItem('wallet_type');
+      });
+    }
+  }, []);
 
   // Context value
   const contextValue = {
@@ -499,7 +625,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     connect,
     disconnect,
     error,
-    walletInfo
+    walletInfo,
+    activeWallet
   };
 
   return (

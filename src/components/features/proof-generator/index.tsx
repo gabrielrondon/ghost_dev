@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 // @ts-ignore - These functions are exported but may not be used directly
 import { verifyNftOwnership, verifyOwnership } from '@/services/verification'
 import { Shield, CheckCircle2, XCircle, Loader2, Copy, ExternalLink, Image, Wallet, ArrowUpRight, ArrowDownLeft, Vote, AlertTriangle, RefreshCw } from 'lucide-react'
-import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet'
+import type { ICPToken, ICPTransaction } from '@/types/wallet'
 import type { VerificationResult, VerifiableItemType } from '@/types/proof'
 import toast from 'react-hot-toast'
+import { useWallet } from '@/components/WalletContext'
 
 // Helper functions to generate IDs
 // @ts-ignore - Function may be used in future development
@@ -15,14 +16,6 @@ function generateProofId(): string {
 // @ts-ignore - Function may be used in future development
 function generateAnonymousRef(): string {
   return `anon-${Date.now()}-${Math.random().toString(36).substring(2)}`
-}
-
-interface ProofGeneratorProps {
-  walletInfo: WalletInfo | null
-  isConnecting: boolean
-  onConnect: () => Promise<void>
-  onDisconnect: () => Promise<void>
-  onRefreshData: (principal: string) => Promise<void>
 }
 
 interface DebugInfo {
@@ -39,7 +32,8 @@ interface DebugInfo {
   [key: string]: any
 }
 
-function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onRefreshData }: ProofGeneratorProps) {
+function ProofGenerator() {
+  const { walletInfo, isConnecting, connect, disconnect } = useWallet()
   const [selectedItemType, setSelectedItemType] = useState<VerifiableItemType>('token')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
@@ -65,7 +59,21 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
     setIsLoadingData(true)
     setConnectionError(null)
     try {
-      await onRefreshData(principal)
+      // In the future, implement more detailed data fetching here
+      // For now, we'll simply use the data from walletInfo
+      if (walletInfo?.tokens) {
+        setTokens(walletInfo.tokens)
+      }
+      if (walletInfo?.transactions) {
+        setTransactions(walletInfo.transactions)
+      }
+      // Set debug info
+      setDebugInfo({
+        walletType: walletInfo?.walletType,
+        principal: walletInfo?.principal,
+        address: walletInfo?.address,
+        timestamp: new Date().toISOString()
+      })
     } catch (error) {
       console.error('Failed to fetch user data:', error)
       setConnectionError('Failed to load wallet data. Please try again.')
@@ -77,7 +85,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
   async function handleConnectWallet() {
     setConnectionError(null)
     try {
-      await onConnect()
+      await connect()
     } catch (error) {
       console.error('Failed to connect wallet:', error)
       setConnectionError(`Failed to connect wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -87,7 +95,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
 
   async function handleDisconnectWallet() {
     try {
-      await onDisconnect()
+      await disconnect()
       setVerificationResult(null)
       setSelectedItemId(null)
       setSelectedItemType('token')
@@ -106,6 +114,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
     setIsRefreshing(true)
     try {
       await fetchUserData(walletInfo.principal)
+      toast.success('Data refreshed successfully')
     } finally {
       setIsRefreshing(false)
     }

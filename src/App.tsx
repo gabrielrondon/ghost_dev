@@ -3,10 +3,8 @@ import { Header } from '@/components/layout/header';
 import ProofGenerator from '@/components/features/proof-generator';
 import { VerificationPage } from '@/components/features/verification';
 import { Providers } from '@/app/providers';
-import { useWallet } from '@/components/WalletContext';
 
 function App() {
-  const { walletInfo, isConnecting, connect, disconnect } = useWallet();
   const [verificationProofId, setVerificationProofId] = useState<string | null>(null);
 
   // Check if we're on a verification page
@@ -27,24 +25,6 @@ function App() {
     }
   }, []);
 
-  // Mock function for refreshing data - this would be implemented in a real app
-  const refreshData = async (principal: string) => {
-    console.log('Refreshing data for principal:', principal);
-    // Implementation would be here
-    return Promise.resolve();
-  };
-
-  // Promise wrappers for connect/disconnect functions
-  const handleConnect = async () => {
-    await connect();
-    return Promise.resolve();
-  };
-
-  const handleDisconnect = async () => {
-    disconnect();
-    return Promise.resolve();
-  };
-
   // If we're on a verification page, render the VerificationPage component
   if (verificationProofId) {
     return (
@@ -59,21 +39,10 @@ function App() {
   return (
     <Providers>
       <div className="min-h-screen bg-gray-900 text-gray-100">
-        <Header 
-          walletInfo={walletInfo}
-          isConnecting={isConnecting}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
+        <Header />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <ProofGenerator 
-            walletInfo={walletInfo}
-            isConnecting={isConnecting}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-            onRefreshData={refreshData}
-          />
+          <ProofGenerator />
         </main>
       </div>
     </Providers>
