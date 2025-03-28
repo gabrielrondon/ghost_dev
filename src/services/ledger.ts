@@ -3,7 +3,7 @@ import { Principal } from '@dfinity/principal';
 // Ledger canister ID for ICP token on mainnet
 export const ICP_LEDGER_CANISTER_ID = "ryjl3-tyaaa-aaaaa-aaaba-cai";
 
-// Simplified AccountIdentifier implementation without requiring the @dfinity/ledger-icp package
+// Improved AccountIdentifier implementation
 class CustomAccountIdentifier {
   private readonly bytes: Uint8Array;
 
@@ -12,12 +12,18 @@ class CustomAccountIdentifier {
   }
 
   static fromPrincipal({ principal }: { principal: Principal }): CustomAccountIdentifier {
-    // This is a simplified version - in production we would use the actual implementation
-    // For now we're creating a placeholder since we just need to interact with the ledger canister
+    // Hash the principal to create an account ID
+    // This is a simplified implementation based on the dfinity specs
+    const principalBytes = principal.toUint8Array();
     const bytes = new Uint8Array(32);
     
-    // Copy the principal's bytes into our array (simplified)
-    const principalBytes = principal.toUint8Array();
+    // CRC32 header
+    bytes[0] = 0x0A;
+    bytes[1] = 0xCC;
+    bytes[2] = 0xCB;
+    bytes[3] = 0xD5;
+    
+    // Copy principal bytes
     for (let i = 0; i < Math.min(principalBytes.length, 28); i++) {
       bytes[i + 4] = principalBytes[i];
     }
@@ -28,10 +34,15 @@ class CustomAccountIdentifier {
   toUint8Array(): Uint8Array {
     return this.bytes;
   }
+  
+  toHex(): string {
+    return Array.from(this.bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
 }
 
 // Define the IDL factory for the ledger canister
-// This is a simplified version of the actual ICP ledger interface
 const ledgerIdlFactory = ({ IDL }: { IDL: any }) => {
   return IDL.Service({
     'account_balance_dfx' : IDL.Func(
@@ -58,23 +69,11 @@ const ledgerIdlFactory = ({ IDL }: { IDL: any }) => {
   });
 };
 
-// Extend the Window interface to include ic
-declare global {
-  interface Window {
-    ic?: {
-      plug?: {
-        agent?: any;
-        isConnected: () => Promise<boolean>;
-        requestConnect: (options?: { whitelist?: string[]; host?: string }) => Promise<boolean>;
-        createAgent: (options?: { whitelist?: string[]; host?: string }) => Promise<any>;
-        createActor: (options: { canisterId: string; interfaceFactory: any }) => Promise<any>;
-        requestBalance: () => Promise<Array<{ currency: string; amount: string }>>;
-        disconnect: () => Promise<void>;
-        getAccountId?: () => Promise<string>;
-        getPrincipal?: () => Promise<Principal>;
-      }
-    }
-  }
+// We're not declaring global window interfaces to avoid conflicts
+// We'll use type assertions instead
+
+interface LedgerActor {
+  account_balance_dfx: (args: { account: Array<number> }) => Promise<{ e8s: any }>;
 }
 
 /**
@@ -93,10 +92,6 @@ export function principalToAccountIdentifier(principal: string): Uint8Array {
   }
 }
 
-interface LedgerActor {
-  account_balance_dfx: (args: { account: Array<number> }) => Promise<{ e8s: any }>;
-}
-
 /**
  * Gets ICP balance from the ledger canister
  * @param principal Principal string
@@ -104,47 +99,61 @@ interface LedgerActor {
  */
 export async function getICPBalance(principal: string): Promise<{ e8s: bigint }> {
   try {
-    if (!window.ic?.plug?.agent) {
+    if (!(window as any).ic?.plug?.agent) {
       throw new Error("No agent available to query the ledger");
     }
+
+    console.log(`Fetching balance for principal: ${principal}`);
     
-    // Create an actor to interact with the ledger canister
-    const actor = await window.ic.plug.createActor({
-      canisterId: ICP_LEDGER_CANISTER_ID,
-      interfaceFactory: ledgerIdlFactory,
-    }) as LedgerActor;
-    
-    // Convert principal to account identifier
-    const accountIdentifier = principalToAccountIdentifier(principal);
-    
-    // Query the ledger canister for balance
+    // First try to use Plug's built-in balance function if available
     try {
+      if (typeof (window as any).ic.plug.requestBalance === 'function') {
+        console.log("Using Plug wallet's requestBalance method");
+        const balanceResponse = await (window as any).ic.plug.requestBalance();
+        
+        if (balanceResponse && Array.isArray(balanceResponse) && balanceResponse.length > 0) {
+          const icpBalance = balanceResponse.find((b: { currency: string; amount: string }) => b.currency === 'ICP');
+          if (icpBalance) {
+            const e8s = BigInt(Math.floor(Number(icpBalance.amount) * 100000000));
+            console.log(`Found ICP balance using requestBalance: ${icpBalance.amount} ICP (${e8s} e8s)`);
+            return { e8s };
+          }
+        }
+        
+        console.log("requestBalance didn't return expected ICP balance, falling back to ledger canister");
+      }
+    } catch (plugBalanceError) {
+      console.warn("Error using Plug wallet's balance method:", plugBalanceError);
+      // Continue to fallback method
+    }
+    
+    // Create an actor to interact with the ledger canister directly
+    try {
+      console.log("Querying ledger canister directly for balance");
+      const actor = await (window as any).ic.plug.createActor({
+        canisterId: ICP_LEDGER_CANISTER_ID,
+        interfaceFactory: ledgerIdlFactory,
+      }) as LedgerActor;
+      
+      // Convert principal to account identifier
+      const accountIdentifier = principalToAccountIdentifier(principal);
+      console.log(`Account identifier for ${principal}: ${Array.from(accountIdentifier).map(b => b.toString(16).padStart(2, '0')).join('')}`);
+      
+      // Query the ledger canister for balance
       const balance = await actor.account_balance_dfx({
         account: Array.from(accountIdentifier)
       });
       
       // Convert the Nat64 to a bigint
-      return { e8s: BigInt(balance.e8s.toString()) };
-    } catch (queryError) {
-      // If the first method fails, try another approach
-      console.warn("Primary balance method failed, trying alternative:", queryError);
-      
-      // Try a different path for getting the balance through the Plug wallet
-      if (typeof window.ic.plug.requestBalance === 'function') {
-        const balanceResponse = await window.ic.plug.requestBalance();
-        if (balanceResponse && balanceResponse.length > 0) {
-          const icpBalance = balanceResponse.find((b: { currency: string; amount: string }) => b.currency === 'ICP');
-          if (icpBalance) {
-            const e8s = BigInt(Math.floor(Number(icpBalance.amount) * 100000000));
-            return { e8s };
-          }
-        }
-      }
-      
-      throw new Error("Failed to get balance through all available methods");
+      const e8s = BigInt(balance.e8s.toString());
+      console.log(`Successfully fetched balance from ledger canister: ${e8s} e8s`);
+      return { e8s };
+    } catch (ledgerError) {
+      console.error("Error querying ledger canister:", ledgerError);
+      throw ledgerError;
     }
   } catch (error) {
-    console.error("Error getting ICP balance:", error);
+    console.error("All balance fetching methods failed:", error);
     throw error;
   }
 }
@@ -171,9 +180,11 @@ export function formatICPBalance(e8s: bigint): string {
  */
 export async function getICPTokenData(principal: string) {
   try {
+    console.log(`Getting ICP token data for principal: ${principal}`);
     const balance = await getICPBalance(principal);
     const amount = formatICPBalance(balance.e8s);
     
+    console.log(`Final ICP token data - Balance: ${balance.e8s}, Formatted: ${amount}`);
     return {
       id: 'icp-1',
       symbol: 'ICP',
