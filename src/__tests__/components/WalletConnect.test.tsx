@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import { WalletConnect } from '@/components/WalletConnect'
 import { useWallet, type WalletContextType } from '@/components/WalletContext'
 
@@ -31,10 +31,10 @@ describe('WalletConnect', () => {
       walletInfo: null
     });
     
-    render(<WalletConnect />);
+    const { container } = render(<WalletConnect />);
     
     // Verify connect button is present
-    const connectButton = screen.getByText(/connect/i);
+    const connectButton = within(container).getByText(/connect/i);
     expect(connectButton).toBeInTheDocument();
   })
 
@@ -51,10 +51,10 @@ describe('WalletConnect', () => {
       walletInfo: null
     });
     
-    render(<WalletConnect />);
+    const { container } = render(<WalletConnect />);
     
     // Verify error message is displayed
-    const errorMessage = screen.getByText(/test error message/i);
+    const errorMessage = within(container).getByText(/test error message/i);
     expect(errorMessage).toBeInTheDocument();
   })
 }) 
