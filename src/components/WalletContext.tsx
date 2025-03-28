@@ -1,54 +1,75 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { connectWallet, disconnectWallet, getCurrentWalletInfo } from '@/services/api';
-import type { WalletInfo } from '@/types/wallet';
+import { createContext, useContext, useState, type ReactNode } from 'react';
+import type { WalletInfo } from '@/lib/wallet';
 
 interface WalletContextType {
   walletInfo: WalletInfo | null;
-  isConnecting: boolean;
   connect: () => Promise<void>;
-  disconnect: () => Promise<void>;
+  disconnect: () => void;
+  isConnecting: boolean;
+  error: Error | null;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
 
-export function WalletProvider({ children }: { children: React.ReactNode }) {
+export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-
-  useEffect(() => {
-    // Check if wallet is already connected
-    const checkWallet = async () => {
-      const currentWallet = await getCurrentWalletInfo();
-      if (currentWallet) {
-        setWalletInfo(currentWallet);
-      }
-    };
-    checkWallet();
-  }, []);
+  const [error, setError] = useState<Error | null>(null);
 
   const connect = async () => {
-    setIsConnecting(true);
     try {
-      const wallet = await connectWallet('internetComputer');
-      if (wallet) {
-        setWalletInfo(wallet);
+      setIsConnecting(true);
+      setError(null);
+
+      // Check if wallet was previously connected
+      const currentWallet = await window.ic?.plug?.getPrincipal();
+      if (currentWallet) {
+        const walletData: WalletInfo = {
+          isConnected: true,
+          address: currentWallet.toString(),
+          principal: currentWallet.toString(),
+          walletType: 'internetComputer',
+          chainId: 'icp',
+          chainName: 'Internet Computer'
+        };
+        setWalletInfo(walletData);
+        return;
       }
+
+      // Connect to wallet
+      const connected = await window.ic?.plug?.requestConnect({
+        whitelist: [],
+        host: 'https://ic0.app'
+      });
+
+      if (!connected) throw new Error('Failed to connect wallet');
+
+      const principal = await window.ic?.plug?.getPrincipal();
+      if (!principal) throw new Error('Failed to get principal');
+
+      const walletData: WalletInfo = {
+        isConnected: true,
+        address: principal.toString(),
+        principal: principal.toString(),
+        walletType: 'internetComputer',
+        chainId: 'icp',
+        chainName: 'Internet Computer'
+      };
+      setWalletInfo(walletData);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to connect wallet'));
     } finally {
       setIsConnecting(false);
     }
   };
 
-  const disconnect = async () => {
-    try {
-      await disconnectWallet();
-      setWalletInfo(null);
-    } catch (error) {
-      console.error('Failed to disconnect:', error);
-    }
+  const disconnect = () => {
+    setWalletInfo(null);
+    setError(null);
   };
 
   return (
-    <WalletContext.Provider value={{ walletInfo, isConnecting, connect, disconnect }}>
+    <WalletContext.Provider value={{ walletInfo, connect, disconnect, isConnecting, error }}>
       {children}
     </WalletContext.Provider>
   );
@@ -57,7 +78,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 export function useWallet() {
   const context = useContext(WalletContext);
   if (!context) {
-    throw new Error('useWallet must be used within a WalletProvider');
+    throw new Error('useWallet must be used within WalletProvider');
   }
   return context;
 } 

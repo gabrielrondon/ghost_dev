@@ -1,5 +1,20 @@
 # Milestone 1: Core Proof System Documentation
 
+## Deliverables we submitted
+Milestone 1: MVP - Core Proof System
+- Deploy a canister-based ZK proof system for private attestations
+Definition of Done: A working canister that can accept user input and generate a Zero-Knowledge Proof (ZKP) for a given use case (e.g., NFT holding or token ownership).
+
+- Develop a simple frontend for proof requests (ONE use case will be selected)
+Definition of Done: A basic web interface where users can connect their wallet, select a proof type, and request a ZKP.
+
+- Implement anonymous reference generation for proof verification
+Definition of Done: A unique, shareable proof link that third parties can use to verify the validity of a ZKP.
+
+- Test execution with an initial use case (ONE use case)
+Definition of Done: Successful end-to-end testing of a complete proof request, generation, and verification cycle. A test script and a demo video will be available.
+
+
 ## Overview
 This milestone implements a canister-based Zero-Knowledge Proof (ZKP) system for private attestations, focusing on NFT ownership verification. The system allows users to prove they own an NFT without revealing their identity.
 

@@ -5,6 +5,15 @@ import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet'
 import type { VerificationResult, VerifiableItemType } from '@/types/proof'
 import toast from 'react-hot-toast'
 
+// Helper functions to generate IDs
+function generateProofId(): string {
+  return `proof-${Date.now()}-${Math.random().toString(36).substring(2)}`
+}
+
+function generateAnonymousRef(): string {
+  return `anon-${Date.now()}-${Math.random().toString(36).substring(2)}`
+}
+
 interface ProofGeneratorProps {
   walletInfo: WalletInfo | null
   isConnecting: boolean
@@ -86,12 +95,16 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
 
     setIsVerifying(true)
     try {
-      const result = await verifyNftOwnership({
-        walletAddress: walletInfo.address,
-        itemType: selectedItemType,
-        itemId: selectedItemId,
-        chainId: walletInfo.chainId || (walletInfo.walletType === 'internetComputer' ? 'icp' : 'eth')
-      })
+      const result = await verifyNftOwnership(
+        {
+          walletAddress: walletInfo.address,
+          itemType: selectedItemType,
+          itemId: selectedItemId,
+          chainId: walletInfo.chainId || (walletInfo.walletType === 'internetComputer' ? 'icp' : 'eth')
+        },
+        generateProofId(),
+        generateAnonymousRef()
+      )
       
       setVerificationResult(result)
       
@@ -787,4 +800,4 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
   )
 }
 
-export { ProofGenerator } 
+export { ProofGenerator }

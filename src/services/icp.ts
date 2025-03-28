@@ -1,14 +1,11 @@
 import { Actor, HttpAgent } from '@dfinity/agent'
 import { Principal } from '@dfinity/principal'
 import { idlFactory as mainCanisterIdl } from '@/declarations/main_canister/main_canister.did.js'
-import { idlFactory as zkCanisterIdl } from '@/declarations/zk_canister/zk_canister.did.js'
 import type { _SERVICE as MainCanisterService } from '@/declarations/main_canister/main_canister.did'
-import type { _SERVICE as ZKCanisterService } from '@/declarations/zk_canister/zk_canister.did'
 
 // Canister IDs
 const CANISTER_IDS = {
-  main: import.meta.env.VITE_MAIN_CANISTER_ID || 'rrkah-fqaaa-aaaaa-aaaaq-cai',
-  zk: import.meta.env.VITE_ZK_CANISTER_ID || 'ryjl3-tyaaa-aaaaa-aaaba-cai'
+  main: import.meta.env.VITE_MAIN_CANISTER_ID || 'rrkah-fqaaa-aaaaa-aaaaq-cai'
 }
 
 // Create an HTTP agent for local development
@@ -20,11 +17,6 @@ const agent = new HttpAgent({
 const mainActor = Actor.createActor<MainCanisterService>(mainCanisterIdl, {
   agent,
   canisterId: CANISTER_IDS.main
-})
-
-const zkActor = Actor.createActor<ZKCanisterService>(zkCanisterIdl, {
-  agent,
-  canisterId: CANISTER_IDS.zk
 })
 
 // Define the AttestationData interface to match the canister interface

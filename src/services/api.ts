@@ -1,8 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Task, WalletVerificationRequest, VerificationResult, InternetComputerNft, VerifiableItemType, WalletInfo } from '@/types';
+import type { Task, WalletVerificationRequest, VerificationResult, InternetComputerNft } from '@/types';
 import type { ICPToken, ICPTransaction } from '@/lib/wallet';
-import { canisterService } from './canister'
-import { Principal } from '@dfinity/principal'
 import type { NFTCanister } from '@/declarations/interfaces'
 import { nftCanisterInterface } from '@/declarations/interfaces'
 import { Actor, HttpAgent } from '@dfinity/agent'
@@ -122,15 +120,6 @@ async function generateReference(): Promise<string> {
   return Math.random().toString(36).substring(2)
 }
 
-function generateMerkleProof(items: bigint[]): { path: bigint[], indices: number[] } {
-  // This is a simplified Merkle proof generation
-  // In production, this would be replaced with actual Merkle tree computation
-  return {
-    path: items.map(x => x + BigInt(1)), // Dummy path
-    indices: Array.from({ length: items.length }, (_, i) => i)
-  }
-}
-
 async function getNFTCanister(canisterId: string): Promise<NFTCanister> {
     const agent = new HttpAgent()
     if (process.env.NODE_ENV !== 'production') {
@@ -200,9 +189,9 @@ function generateMerklePath(principal: bigint, tokenId: bigint): bigint[] {
 }
 
 function generateMerkleIndices(): number[] {
-  // In production, this would be the actual indices in the Merkle tree
-  // For now, we return dummy indices for testing
-  return [0, 1, 0, 1]
+  // In production, this would be based on the actual Merkle tree structure
+  // For now, we return a simple array for testing
+  return [0, 1, 2, 3]
 }
 
 async function assignTask(
@@ -437,7 +426,6 @@ export function getCurrentWalletInfo() {
 }
 
 export { 
-    generateReference, 
     assignTask, 
     getTasks, 
     executeTasks, 
@@ -449,5 +437,10 @@ export {
     verifyNftOwnership,
     verifyToken,
     verifyTransaction,
-    verifyGovernance
+    verifyGovernance,
+    generateProofId,
+    generateAnonymousRef,
+    generateMerklePath,
+    generateMerkleIndices,
+    generateReference
 };

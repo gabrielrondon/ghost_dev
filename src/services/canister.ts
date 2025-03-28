@@ -1,9 +1,7 @@
 import { Actor, HttpAgent } from '@dfinity/agent'
-import { Principal } from '@dfinity/principal'
 import { idlFactory } from '../../.dfx/local/canisters/zk_canister/service.did.js'
 import type { 
   ICPAttestationInput, 
-  VerificationResult, 
   ZkCanisterService,
   ProofGenerationResult,
   ProofVerificationResult,
