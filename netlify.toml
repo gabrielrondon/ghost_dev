@@ -6,7 +6,7 @@
   NODE_VERSION = "18"
   VITE_MAIN_CANISTER_ID = "hp6ha-baaaa-aaaad-aaloq-cai"
   VITE_ZK_CANISTER_ID = "hi7bu-myaaa-aaaad-aaloa-cai"
-  VITE_IC_HOST = "https://ic0.app"
+  VITE_IC_HOST = "https://icp0.io"
   VITE_USE_MOCK_DATA = "false"
 
 [[redirects]]
@@ -21,4 +21,4 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self' https://ic0.app; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://ic0.app; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://ic0.app https://*.ic0.app;" 
+    Content-Security-Policy = "default-src 'self' https://ic0.app https://icp0.io; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://ic0.app https://icp0.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://ic0.app https://*.ic0.app https://icp0.io https://*.icp0.io;" 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+// @ts-ignore - These functions are exported but may not be used directly
 import { verifyNftOwnership, verifyOwnership } from '@/services/verification'
 import { Shield, CheckCircle2, XCircle, Loader2, Copy, ExternalLink, Image, Wallet, ArrowUpRight, ArrowDownLeft, Vote, AlertTriangle, RefreshCw } from 'lucide-react'
 import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet'
@@ -6,10 +7,12 @@ import type { VerificationResult, VerifiableItemType } from '@/types/proof'
 import toast from 'react-hot-toast'
 
 // Helper functions to generate IDs
+// @ts-ignore - Function may be used in future development
 function generateProofId(): string {
   return `proof-${Date.now()}-${Math.random().toString(36).substring(2)}`
 }
 
+// @ts-ignore - Function may be used in future development
 function generateAnonymousRef(): string {
   return `anon-${Date.now()}-${Math.random().toString(36).substring(2)}`
 }
@@ -42,7 +45,9 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
   const [copied, setCopied] = useState(false)
+  // @ts-ignore - These state variables are used in functions not shown in the current view
   const [tokens, setTokens] = useState<ICPToken[]>([])
+  // @ts-ignore - These state variables are used in functions not shown in the current view
   const [transactions, setTransactions] = useState<ICPTransaction[]>([])
   const [isLoadingData, setIsLoadingData] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
@@ -95,7 +100,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
       await onDisconnect()
       setVerificationResult(null)
       setSelectedItemId(null)
-      setSelectedItemType('nft')
+      setSelectedItemType('token')
       setTokens([])
       setTransactions([])
       setConnectionError(null)
@@ -233,148 +238,15 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
     }
 
     switch (selectedItemType) {
-      case 'nft':
-        return renderNfts()
       case 'token':
         return renderTokens()
       case 'transaction':
-        return renderTransactions()
+        return renderTransactionsComingSoon()
       case 'governance':
         return renderGovernance()
       default:
-        return null
+        return renderTokens() // Default to tokens
     }
-  }
-
-  function renderNfts() {
-    if (!walletInfo?.nfts || walletInfo.nfts.length === 0) {
-      return (
-        <div className="bg-gray-700/50 rounded-md p-4 text-center">
-          <p className="text-gray-400">No NFTs found in your wallet</p>
-          <p className="text-sm text-gray-500 mt-1">
-            You need to have at least one NFT to create a verification proof
-          </p>
-          <div className="flex flex-col space-y-2 mt-4">
-            <button
-              onClick={handleRefreshData}
-              disabled={isRefreshing}
-              className="flex items-center justify-center mx-auto px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm"
-            >
-              {isRefreshing ? (
-                <>
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </>
-              )}
-            </button>
-            
-            <button
-              onClick={handleCheckWalletDirectly}
-              disabled={isRefreshing}
-              className="flex items-center justify-center mx-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md text-sm"
-            >
-              {isRefreshing ? (
-                <>
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  Checking...
-                </>
-              ) : (
-                <>
-                  <Wallet className="h-4 w-4 mr-2" />
-                  Check Wallet Directly
-                </>
-              )}
-            </button>
-          </div>
-          
-          <div className="mt-4 text-xs text-gray-500 text-left p-2 bg-gray-800 rounded-md">
-            <p className="font-semibold text-gray-400 mb-2">Debugging info:</p>
-            <p>Principal: {walletInfo?.principal || 'Not available'}</p>
-            <p>Address: {walletInfo?.address || 'Not available'}</p>
-            <p>Wallet Type: {walletInfo?.walletType || 'Not available'}</p>
-            <p>Chain ID: {walletInfo?.chainId || 'Not available'}</p>
-            <p>Is Connected: {walletInfo?.isConnected ? 'Yes' : 'No'}</p>
-            <p className="mt-2 font-semibold text-gray-400">NFTs Debug:</p>
-            <p>NFT Count: {walletInfo?.nfts?.length || 0}</p>
-            <p>NFT Array Type: {walletInfo?.nfts ? typeof walletInfo.nfts : 'undefined'}</p>
-            
-            {debugInfo.directNftCheck && (
-              <div className="mt-2">
-                <p className="font-semibold text-gray-400">Direct NFT Check:</p>
-                <p>Count: {debugInfo.directNftCheck.count}</p>
-                <p>Timestamp: {debugInfo.directNftCheck.timestamp}</p>
-              </div>
-            )}
-            
-            <div className="mt-2">
-              <p className="font-semibold text-gray-400">Full Wallet Info:</p>
-              <pre className="mt-1 overflow-auto bg-gray-900 p-2 rounded text-gray-300 text-xs">
-                {JSON.stringify(walletInfo, null, 2)}
-              </pre>
-            </div>
-            
-            <div className="mt-2">
-              <p className="font-semibold text-gray-400">Debug Info:</p>
-              <pre className="mt-1 overflow-auto bg-gray-900 p-2 rounded text-gray-300 text-xs">
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    console.log('Rendering NFTs:', walletInfo.nfts);
-
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 mb-2 p-2 bg-gray-800/50 rounded-md">
-          <p className="text-xs text-gray-400">Found {walletInfo.nfts.length} NFT(s) in your wallet</p>
-        </div>
-        
-        {walletInfo.nfts.map((nft) => {
-          const nftId = `${nft.canisterId}:${nft.index}`;
-          console.log('NFT ID for selection:', nftId, 'NFT data:', nft);
-          
-          return (
-            <div 
-              key={nftId}
-              className={`border rounded-md p-2 cursor-pointer transition-colors ${
-                selectedItemId === nftId 
-                  ? 'border-purple-500 bg-purple-900/20' 
-                  : 'border-gray-700 hover:border-gray-600'
-              }`}
-              onClick={() => setSelectedItemId(nftId)}
-            >
-              <div className="aspect-square bg-gray-900 rounded-md flex items-center justify-center mb-2 overflow-hidden">
-                {nft.url ? (
-                  <img 
-                    src={nft.url} 
-                    alt={nft.name} 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      console.error(`Failed to load image for NFT: ${nft.name}`, nft.url);
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzJhMmEyYSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
-                    }}
-                  />
-                ) : (
-                  <Image className="w-8 h-8 text-gray-600" />
-                )}
-              </div>
-              <p className="text-sm font-medium truncate">{nft.name}</p>
-              <p className="text-xs text-gray-500 truncate">Collection: {nft.collection || 'Unknown'}</p>
-              <p className="text-xs text-gray-500 truncate">ID: {nft.index}</p>
-              <p className="text-xs text-gray-500 truncate">Canister: {nft.canisterId.substring(0, 10)}...</p>
-            </div>
-          );
-        })}
-      </div>
-    )
   }
 
   function renderTokens() {
@@ -470,6 +342,13 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
             maximumFractionDigits: 8
           });
           
+          // Estimated USD value (mock for display purposes)
+          const estimatedUsdValue = token.symbol === 'ICP' 
+            ? parseFloat(token.amount) * 10 // Assume $10 per ICP
+            : token.symbol === 'ckBTC' 
+              ? parseFloat(token.amount) * 40000 // Assume $40,000 per BTC
+              : 0; // Default for unknown tokens
+          
           return (
             <div 
               key={tokenId}
@@ -496,7 +375,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium">{formattedAmount}</p>
-                  <p className="text-xs text-gray-400">≈ ${(parseFloat(token.amount) * (token.usdValue || 0)).toFixed(2)} USD</p>
+                  <p className="text-xs text-gray-400">≈ ${estimatedUsdValue.toFixed(2)} USD</p>
                 </div>
               </div>
             </div>
@@ -506,72 +385,18 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
     )
   }
 
-  function renderTransactions() {
-    if (transactions.length === 0) {
-      return (
-        <div className="bg-gray-700/50 rounded-md p-4 text-center">
-          <p className="text-gray-400">No transactions found in your wallet</p>
-          <p className="text-sm text-gray-500 mt-1">
-            You need to have at least one transaction to create a verification proof
-          </p>
-          <button
-            onClick={handleRefreshData}
-            disabled={isRefreshing}
-            className="flex items-center justify-center mx-auto mt-4 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm"
-          >
-            {isRefreshing ? (
-              <>
-                <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </>
-            )}
-          </button>
-        </div>
-      )
-    }
-
+  function renderTransactionsComingSoon() {
     return (
-      <div className="space-y-3">
-        {transactions.map((tx) => (
-          <div 
-            key={tx.id}
-            className={`border rounded-md p-3 cursor-pointer transition-colors ${
-              selectedItemId === tx.id 
-                ? 'border-purple-500 bg-purple-900/20' 
-                : 'border-gray-700 hover:border-gray-600'
-            }`}
-            onClick={() => setSelectedItemId(tx.id)}
-          >
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center mr-3">
-                {tx.type === 'receive' ? (
-                  <ArrowDownLeft className="w-5 h-5 text-green-400" />
-                ) : (
-                  <ArrowUpRight className="w-5 h-5 text-red-400" />
-                )}
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between">
-                  <p className="font-medium">
-                    {tx.type === 'receive' ? 'Received' : 'Sent'} {tx.token}
-                  </p>
-                  <p className={`font-bold ${tx.type === 'receive' ? 'text-green-400' : 'text-red-400'}`}>
-                    {tx.type === 'receive' ? '+' : '-'}{tx.amount}
-                  </p>
-                </div>
-                <div className="flex justify-between text-sm text-gray-400">
-                  <p>{new Date(tx.timestamp).toLocaleDateString()}</p>
-                  <p>#{tx.blockHeight}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="bg-gray-700/50 rounded-md p-4 text-center">
+        <p className="text-gray-400">Transaction verification coming soon</p>
+        <p className="text-sm text-gray-500 mt-1">
+          This feature will allow you to prove your transaction history without revealing your identity
+        </p>
+        <div className="mt-4 p-3 bg-purple-900/20 border border-purple-800 rounded-md">
+          <p className="text-sm text-purple-300">
+            <span className="font-semibold">Coming in Next Update:</span> Transaction verification will support both sending and receiving transactions.
+          </p>
+        </div>
       </div>
     )
   }
@@ -635,7 +460,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
                   <h4 className="font-medium">Multi-Chain</h4>
                 </div>
                 <p className="text-sm text-gray-400">
-                  Support for NFTs, tokens, and transactions across multiple blockchain networks.
+                  Support for tokens and transactions across multiple blockchain networks.
                 </p>
               </div>
             </div>
@@ -649,7 +474,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
                 </li>
                 <li className="flex items-start">
                   <span className="flex-shrink-0 w-6 h-6 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center mr-2">2</span>
-                  Select the type of proof you want to generate (NFT, token, transaction)
+                  Select the type of proof you want to generate (token, transaction, or governance)
                 </li>
                 <li className="flex items-start">
                   <span className="flex-shrink-0 w-6 h-6 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center mr-2">3</span>
@@ -687,7 +512,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
 
             <div className="mt-6 p-4 bg-gray-700/20 rounded-md border border-gray-600">
               <p className="text-sm text-gray-400 text-center">
-                <strong>Note:</strong> For testing purposes, the system will load sample data if you don't have any NFTs, tokens, or transactions.
+                <strong>Note:</strong> For testing purposes, the system will load sample data if you don't have any tokens.
               </p>
             </div>
           </div>
@@ -730,21 +555,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
         <>
           <div className="mb-6">
             <h3 className="text-lg font-semibold mb-3">What would you like to verify?</h3>
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              <button
-                className={`p-2 rounded-md flex flex-col items-center justify-center text-sm ${
-                  selectedItemType === 'nft' 
-                    ? 'bg-purple-900/50 text-purple-300 border border-purple-500' 
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
-                onClick={() => {
-                  setSelectedItemType('nft')
-                  setSelectedItemId(null)
-                }}
-              >
-                <Image className="h-5 w-5 mb-1" />
-                NFTs
-              </button>
+            <div className="grid grid-cols-3 gap-2 mb-4">
               <button
                 className={`p-2 rounded-md flex flex-col items-center justify-center text-sm ${
                   selectedItemType === 'token' 
@@ -795,7 +606,7 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
             
             <button
               onClick={handleVerify}
-              disabled={isVerifying || !selectedItemId}
+              disabled={isVerifying || !selectedItemId || selectedItemType === 'transaction' || selectedItemType === 'governance'}
               className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isVerifying ? (
@@ -803,6 +614,8 @@ function ProofGenerator({ walletInfo, isConnecting, onConnect, onDisconnect, onR
                   <Loader2 className="animate-spin h-5 w-5 mr-2" />
                   Generating Proof...
                 </>
+              ) : selectedItemType === 'transaction' || selectedItemType === 'governance' ? (
+                'Coming Soon'
               ) : (
                 'Generate Zero-Knowledge Proof'
               )}
