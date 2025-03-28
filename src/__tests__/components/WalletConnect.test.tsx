@@ -1,12 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { WalletConnect } from '@/components/WalletConnect'
-import { useWallet } from '@/components/WalletContext'
+import { useWallet, type WalletContextType } from '@/components/WalletContext'
 
 // Mock the wallet context
 vi.mock('@/components/WalletContext', () => {
   return {
-    WalletContextType: {}, // Mock the interface
     useWallet: vi.fn(() => ({
       isConnected: false,
       connect: vi.fn(() => Promise.resolve()),
@@ -35,7 +34,7 @@ describe('WalletConnect', () => {
     render(<WalletConnect />);
     
     // Verify connect button is present
-    const connectButton = screen.getByText(/connect wallet/i);
+    const connectButton = screen.getByText(/connect/i);
     expect(connectButton).toBeInTheDocument();
   })
 

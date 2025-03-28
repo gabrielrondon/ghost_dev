@@ -38,6 +38,7 @@ const MOCK_TOKENS: ICPToken[] = [
 // Determine if we're in development mode
 const isDev = import.meta.env.DEV === true;
 
+// Export the context type for use in test files
 export interface WalletContextType {
   isConnected: boolean;
   isConnecting: boolean;
@@ -93,7 +94,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const connect = async () => {
-    if (!('ic' in window && 'plug' in (window as any).ic)) {
+    // Check if Plug wallet exists using type assertion
+    if (!window.hasOwnProperty('ic') || !(window as any).ic?.hasOwnProperty('plug')) {
       toast.error('Plug wallet not found. Please install the Plug extension first.');
       return null;
     }
@@ -109,7 +111,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       // Check if we're already connected
       try {
-        if (plug.isConnected) {
+        if (typeof plug.isConnected === 'function') {
           isConnected = await plug.isConnected();
         }
       } catch (error) {
@@ -147,7 +149,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       // Try to fetch NFTs if the function exists
       try {
-        if (plug.getNFTs) {
+        if (typeof plug.getNFTs === 'function') {
           console.log('Attempting to fetch NFTs...');
           nfts = await plug.getNFTs();
           console.log('Successfully fetched NFTs:', nfts);
@@ -166,7 +168,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       // Try to fetch token balances if the function exists
       try {
-        if (plug.getBalance) {
+        if (typeof plug.getBalance === 'function') {
           console.log('Attempting to fetch token balances...');
           const balances = await plug.getBalance();
           
@@ -195,7 +197,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           // Create an agent specifically for the ledger with the right canister ID
           if (!plug.agent) {
             console.log('Creating new agent for ledger interactions');
-            if (plug.createAgent) {
+            if (typeof plug.createAgent === 'function') {
               await plug.createAgent({ 
                 whitelist: [
                   ICP_LEDGER_CANISTER_ID,
@@ -261,7 +263,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Get accountId if the function exists
       let accountId = '';
       try {
-        if (plug.getAccountId) {
+        if (typeof plug.getAccountId === 'function') {
           accountId = await plug.getAccountId();
           console.log('Account ID:', accountId);
         }
@@ -313,9 +315,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const disconnect = async () => {
     try {
-      if ('ic' in window && 'plug' in (window as any).ic) {
+      // Use type assertion to check for plug wallet
+      if (window.hasOwnProperty('ic') && (window as any).ic?.hasOwnProperty('plug')) {
         const plug = (window as any).ic.plug as ICPlug;
-        if (plug.disconnect) {
+        if (typeof plug.disconnect === 'function') {
           await plug.disconnect();
         }
       }
