@@ -175,7 +175,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const balances = await (window.ic.plug as any).getBalance();
             
             if (balances && Array.isArray(balances)) {
-              tokens = balances.map(balance => ({
+              tokens = balances.map((balance: {currency: string; amount: string}) => ({
                 id: `${balance.currency.toLowerCase()}-1`,
                 symbol: balance.currency,
                 name: balance.currency === 'ICP' ? 'Internet Computer' : balance.currency,
