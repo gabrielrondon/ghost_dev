@@ -1,23 +1,19 @@
-import { AuthClient } from '@dfinity/auth-client';
-import { Actor, HttpAgent, Identity } from '@dfinity/agent';
+import { StoicIdentity } from 'ic-stoic-identity';
+import { Actor, HttpAgent } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
-import { ICP_LEDGER_CANISTER_ID, getICPTokenData } from './ledger';
+import { ICP_LEDGER_CANISTER_ID } from '@/constants';
+import { getICPTokenData, formatICPBalance } from '@/services/ledger';
 import type { ICPToken } from '@/types/wallet';
+import crypto from 'crypto-browserify';
 
 // Constants for Stoic Wallet
 const STOIC_HOST = 'https://www.stoicwallet.com';
 
-// Basic utility for formatting e8s to ICP
-export function formatICPBalance(e8s: bigint): string {
-  const icpBalance = Number(e8s) / 100_000_000;
-  return icpBalance.toFixed(8);
-}
-
-// Interface for the result of a Stoic wallet connection
+// Type definitions for Stoic connection
 export interface StoicConnectionResult {
-  identity: Identity;
-  principal: Principal;
-  agent: HttpAgent;
+  principal: Principal
+  identity: any
+  agent: HttpAgent
 }
 
 // Get a token's symbol based on its canister ID
@@ -45,131 +41,99 @@ function isBrowser(): boolean {
 }
 
 /**
- * Connect to Stoic Wallet
- * @returns Promise with the connection result
+ * Connect to Stoic wallet and return principal and agent
  */
-export async function connectToStoicWallet(): Promise<StoicConnectionResult> {
-  // Check if running in a browser environment
-  if (!isBrowser()) {
-    throw new Error('Stoic wallet requires a browser environment with crypto support');
-  }
-
+export async function connectToStoicWallet(): Promise<StoicConnectionResult | null> {
   try {
-    // Create AuthClient
-    const authClient = await AuthClient.create({
-      idleOptions: {
-        disableIdle: true,
-        disableDefaultIdleCallback: true
-      }
-    });
-
-    // Check if already authenticated
-    const isAuthenticated = await authClient.isAuthenticated();
+    console.log('Connecting to Stoic wallet...');
     
-    // If not authenticated, login with proper redirect to Stoic
-    if (!isAuthenticated) {
-      await new Promise<void>((resolve, reject) => {
-        authClient.login({
-          identityProvider: STOIC_HOST,
-          windowOpenerFeatures: 
-            `left=${window.screen.width / 2 - 525 / 2}, ` +
-            `top=${window.screen.height / 2 - 705 / 2}, ` +
-            `toolbar=0,location=0,menubar=0,width=525,height=705`,
-          onSuccess: () => resolve(),
-          onError: (error) => reject(new Error(`Failed to login to Stoic: ${error}`))
-        });
-      });
-    }
-
-    // Get identity
-    const identity = authClient.getIdentity();
+    // Try to connect to Stoic
+    const identity = await StoicIdentity.connect();
     
-    // Verify we have a valid identity
     if (!identity) {
-      throw new Error('Failed to obtain identity from Stoic wallet');
+      console.error('No identity returned from Stoic');
+      return null;
     }
     
-    // Create agent with identity
-    const agent = new HttpAgent({
-      host: import.meta.env.VITE_IC_HOST || 'https://icp0.io',
-      identity
-    });
-
-    // Get principal
+    console.log('Identity received from Stoic');
+    
+    // Create an agent with the identity
+    const agent = new HttpAgent({ identity });
+    
+    // Skip verification if not in production
+    if (process.env.NODE_ENV !== 'production') {
+      await agent.fetchRootKey();
+    }
+    
+    // Get the principal from the identity
     const principal = identity.getPrincipal();
-
-    // Log success
-    console.log('Successfully connected to Stoic wallet');
-    console.log('Principal:', principal.toString());
-
+    console.log('Stoic principal:', principal.toString());
+    
     return {
-      identity,
       principal,
+      identity,
       agent
     };
   } catch (error) {
     console.error('Error connecting to Stoic wallet:', error);
-    if (error instanceof Error && error.message.includes('crypto')) {
-      throw new Error('Your browser is missing required security features. Please use a modern browser with Web Crypto API support.');
-    }
     throw error;
   }
 }
 
 /**
- * Disconnect from Stoic Wallet
+ * Disconnect from Stoic wallet
  */
-export async function disconnectFromStoicWallet(): Promise<void> {
+export function disconnectFromStoicWallet(): void {
   try {
-    const authClient = await AuthClient.create();
-    authClient.logout();
-    console.log('Successfully disconnected from Stoic wallet');
+    StoicIdentity.disconnect();
+    console.log('Disconnected from Stoic wallet');
   } catch (error) {
     console.error('Error disconnecting from Stoic wallet:', error);
+  }
+}
+
+/**
+ * Get token balances for a Stoic wallet connection
+ */
+export async function getStoicBalances(agent: HttpAgent, principal: Principal): Promise<ICPToken[]> {
+  try {
+    // Convert principal to string for logging
+    const principalText = principal.toString();
+    console.log(`Fetching balances for Stoic principal: ${principalText}`);
+    
+    // Get ICP token data using the ledger service
+    const icpToken = await getICPTokenData(principalText);
+    console.log('Retrieved ICP token data:', icpToken);
+    
+    // For now, just return ICP token. Could be extended to get more tokens
+    return [icpToken];
+  } catch (error) {
+    console.error('Error fetching Stoic balances:', error);
     throw error;
   }
 }
 
 /**
- * Get ICP balances for the connected identity
- * @param agent HttpAgent with identity
- * @returns Promise with token data
+ * Convert a principal ID to an account identifier 
  */
-export async function getStoicBalances(
-  agent: HttpAgent,
-  principal: Principal
-): Promise<ICPToken[]> {
-  try {
-    console.log('Fetching balances for Stoic wallet...');
-    const principalText = principal.toString();
-    
-    // Get actual ICP token data from the ledger
-    const icpToken = await getICPTokenData(principalText);
-    console.log('ICP balance fetched:', icpToken);
-    
-    // Put this in an array to match the expected return type
-    // In the future, this could be extended to query other token canisters as well
-    const tokens: ICPToken[] = [icpToken];
-
-    return tokens;
-  } catch (error) {
-    console.error('Error fetching Stoic balances:', error);
-    
-    // If in development mode, return mock data
-    if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_DATA === 'true') {
-      console.warn('Using mock data for Stoic wallet in development mode');
-      return [{
-        id: `icp-${Math.random().toString(36).substring(2, 9)}`,
-        symbol: 'ICP',
-        name: 'Internet Computer',
-        balance: '100000000', // 1 ICP in e8s
-        amount: '1',
-        decimals: 8
-      }];
-    }
-    
-    throw error;
-  }
+export function principalToAccountIdentifier(principal: Principal): string {
+  // Implementation of principalToAccountIdentifier
+  // This is a placeholder - you should use a proper implementation
+  const subAccount = Buffer.alloc(32);
+  const padding = Buffer.from('\x0Aaccount-id');
+  
+  const bufPrincipal = principal.toUint8Array();
+  const bufLen = Buffer.from([bufPrincipal.byteLength]);
+  
+  // Create a hash and chain the updates
+  const hash = crypto.createHash('sha256')
+    .update(padding)
+    .update(bufLen)
+    .update(Buffer.from(bufPrincipal))
+    .update(subAccount)
+    .digest('hex');
+  
+  return hash;
 }
 
 /**

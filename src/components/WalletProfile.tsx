@@ -1,5 +1,5 @@
 import { useWallet } from '@/components/WalletContext'
-import { formatICPBalance } from '@/services/stoic-wallet'
+import { formatICPBalance } from '@/services/ledger'
 import { 
   DropdownMenu,
   DropdownMenuContent,

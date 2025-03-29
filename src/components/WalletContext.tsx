@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { WalletInfo, ICPToken, ICPTransaction } from '@/types/wallet';
 import toast from 'react-hot-toast';
-import { getICPTokenData, ICP_LEDGER_CANISTER_ID } from '@/services/ledger';
+import { getICPTokenData } from '@/services/ledger';
+import { ICP_LEDGER_CANISTER_ID } from '@/constants';
 import { 
   connectToStoicWallet, 
   disconnectFromStoicWallet, 
@@ -202,73 +203,57 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [connectionCheckerInterval]);
 
   // Connect to Stoic Wallet
-  const connectStoic = async (): Promise<WalletData | null> => {
+  const connectStoic = async (silentMode = false): Promise<WalletData | null> => {
     try {
       console.log('Connecting to Stoic wallet...');
       
-      // Connect to Stoic with a more robust retry mechanism
-      // that handles browser redirects properly
-      let connectionAttempt = 0;
-      const maxAttempts = 3;
-      let connectionResult: StoicConnectionResult | null = null;
+      // Connect to Stoic wallet
+      const connectionResult = await connectToStoicWallet();
       
-      while (connectionAttempt < maxAttempts && !connectionResult) {
-        try {
-          connectionAttempt++;
-          console.log(`Stoic connection attempt ${connectionAttempt} of ${maxAttempts}`);
-          
-          connectionResult = await connectToStoicWallet();
-          
-          // If we got here, we successfully connected
-          break;
-        } catch (error) {
-          console.error(`Stoic connection attempt ${connectionAttempt} failed:`, error);
-          
-          // If we've reached max attempts, throw the error
-          if (connectionAttempt >= maxAttempts) {
-            throw error;
-          }
-          
-          // Otherwise wait a bit and try again
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-      
-      // If we still don't have a connection, throw an error
       if (!connectionResult) {
-        throw new Error('Failed to connect to Stoic wallet after multiple attempts');
+        throw new Error('Failed to connect to Stoic wallet');
       }
       
       const { principal, agent } = connectionResult;
       const principalText = principal.toString();
       console.log('Connected to Stoic wallet with principal:', principalText);
       
-      // Fetch balances
-      const tokens = await withRetry(
-        () => getStoicBalances(agent, principal),
-        2,
-        1000,
-        'getStoicBalances'
-      );
+      // Fetch ICP token data directly from ledger
+      let tokens: ICPToken[] = [];
+      let usingMockData = false;
       
-      // Use empty NFTs array since Stoic doesn't have built-in NFT support
-      const nfts: any[] = [];
+      try {
+        // Get token data from ledger canister
+        const icpToken = await getICPTokenData(principalText);
+        tokens = [icpToken];
+        console.log('Successfully fetched token balance:', icpToken);
+      } catch (error) {
+        console.error('Failed to fetch token balance:', error);
+        
+        if (isDev) {
+          tokens = MOCK_TOKENS;
+          usingMockData = true;
+          console.warn('Using mock tokens in development mode');
+        } else {
+          throw error;
+        }
+      }
       
-      // Prepare the wallet data
+      // Return wallet data
       const walletData: WalletData = {
         principal: principalText,
-        accountId: '', // Stoic doesn't provide an account ID in the standard format
-        nfts,
+        accountId: principalText, // Stoic doesn't provide a standard account ID
+        nfts: [],
         tokens,
-        usingMockData: false,
+        usingMockData,
         walletType: 'stoic'
       };
-
-      // Update the context state
+      
+      // Update context state
       setWalletInfo({
         isConnected: true,
         principal: principalText,
-        address: principalText, // Use principal as address
+        address: principalText,
         chainId: 'icp',
         chainName: 'Internet Computer',
         walletType: 'stoic',
@@ -283,23 +268,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('wallet_connected', 'true');
       localStorage.setItem('wallet_type', 'stoic');
       
-      toast.success('Successfully connected to Stoic wallet');
+      if (!silentMode) {
+        toast.success('Successfully connected to Stoic wallet');
+      }
       
       return walletData;
     } catch (error) {
       console.error('Error connecting to Stoic wallet:', error);
       
-      // Check for specific errors and provide better messages
-      if (error instanceof Error) {
-        if (error.message.includes('popup') || error.message.includes('window')) {
-          toast.error('Pop-up blocked. Please enable pop-ups for Stoic wallet authentication.');
-        } else if (error.message.includes('crypto')) {
-          toast.error('Your browser is missing required security features.');
-        } else {
+      if (!silentMode) {
+        if (error instanceof Error) {
           toast.error(error.message);
+        } else {
+          toast.error('Failed to connect to Stoic wallet');
         }
-      } else {
-        toast.error('Failed to connect to Stoic wallet');
       }
       
       throw error;
@@ -338,7 +320,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       try {
         if (typeof plug.isConnected === 'function') {
           isConnected = await withRetry(
-            () => plug.isConnected!(),
+            async () => {
+              const connected = await plug.isConnected!();
+              console.log('Plug connection check:', connected ? 'Connected' : 'Not connected');
+              return connected;
+            },
             3,
             500,
             'isConnected check'
@@ -354,7 +340,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           ZK_CANISTER_ID,
           MAIN_CANISTER_ID,
           ICP_LEDGER_CANISTER_ID
-        ];
+        ].filter(Boolean);
         
         console.log('Requesting connection with whitelist:', canisterIds);
         
@@ -381,142 +367,61 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         'getPrincipal'
       );
       const principalText = principal.toString();
+      console.log('Connected with principal:', principalText);
       
       // Initialize variables for NFTs and tokens
       let nfts: any[] = [];
       let tokens: ICPToken[] = [];
       let usingMockTokens = false;
       
-      // Try to fetch NFTs if the function exists - version aware
-      try {
-        if (typeof plug.getNFTs === 'function') {
-          console.log('Attempting to fetch NFTs...');
-          nfts = await withRetry(
-            () => plug.getNFTs!(),
-            2,
-            500,
-            'getNFTs'
-          );
-          console.log('Successfully fetched NFTs:', nfts);
-        } else {
-          console.log('getNFTs function not available in this version of Plug');
-          if (isDev) {
-            nfts = SAMPLE_NFTS;
-          }
-        }
-      } catch (nftError) {
-        console.error('Failed to fetch NFTs:', nftError);
-        if (isDev) {
-          nfts = SAMPLE_NFTS;
-        }
+      // Try to create an agent if needed for ledger operations
+      if (!plug.agent && typeof plug.createAgent === 'function') {
+        console.log('Creating agent for ledger interactions');
+        await withRetry(
+          () => plug.createAgent!({ 
+            whitelist: [
+              ICP_LEDGER_CANISTER_ID,
+              ZK_CANISTER_ID,
+              MAIN_CANISTER_ID
+            ], 
+            host: useHttps ? 'https://icp0.io' : 'http://localhost:8000'
+          }),
+          3,
+          500,
+          'createAgent'
+        );
+      } else {
+        console.log('Using existing agent for ledger interactions');
       }
       
-      // Try to fetch token balances if the function exists - version aware
+      // Get real ICP token data from the ledger
+      console.log(`Getting token data for principal: ${principalText}`);
+      
       try {
-        if (typeof plug.getBalance === 'function') {
-          console.log('Attempting to fetch token balances...');
-          const balances = await withRetry(
-            () => plug.getBalance!(),
-            2,
-            500,
-            'getBalance'
-          );
-          
-          // Map wallet balances to our token format
-          tokens = balances.map(balance => ({
-            id: `${balance.symbol.toLowerCase()}-${Math.random().toString(36).substring(2, 9)}`,
-            symbol: balance.symbol,
-            name: balance.name,
-            balance: balance.amount.toString(),
-            amount: (Number(balance.amount) / 10**8).toString(),
-            decimals: 8
-          }));
-          
-          console.log('Successfully fetched token balances:', tokens);
-        } else {
-          console.log('getBalance function not available in this version of Plug');
-          throw new Error('getBalance function not available');
-        }
-      } catch (tokenError) {
-        console.error('Failed to fetch token balances:', tokenError);
-
-        // Try to fetch ICP balance directly from the ledger canister
-        try {
-          console.log('Attempting to fetch balance directly from ICP ledger canister...');
-          
-          // Create an agent specifically for the ledger with the right canister ID
-          if (!plug.agent) {
-            console.log('Creating new agent for ledger interactions');
-            if (typeof plug.createAgent === 'function') {
-              await withRetry(
-                () => plug.createAgent!({ 
-                  whitelist: [
-                    ICP_LEDGER_CANISTER_ID,
-                    ZK_CANISTER_ID,
-                    MAIN_CANISTER_ID
-                  ], 
-                  host: useHttps ? 'https://icp0.io' : 'http://localhost:8000'
-                }),
-                3,
-                500,
-                'createAgent'
-              );
-            } else {
-              throw new Error('createAgent function not available');
-            }
-          } else {
-            console.log('Using existing agent for ledger interactions');
-          }
-          
-          // Get real ICP token data from the ledger
-          console.log(`Getting token data for principal: ${principalText}`);
-          const icpToken = await withRetry(
-            () => getICPTokenData(principalText),
-            2,
-            1000,
-            'getICPTokenData'
-          );
-          tokens = [icpToken];
-          
-          console.log('Successfully fetched ICP balance from ledger:', icpToken);
+        // Always get token balance directly from the ledger canister for consistency
+        const icpToken = await withRetry(
+          () => getICPTokenData(principalText),
+          2,
+          1000,
+          'getICPTokenData'
+        );
+        tokens = [icpToken];
+        
+        console.log('Successfully fetched ICP balance from ledger:', icpToken);
+        
+        if (!silentMode) {
           toast.success('Successfully connected to your wallet');
-        } catch (ledgerError) {
-          console.error('Failed to fetch balance from ledger:', ledgerError);
-          let errorDetail = '';
-          
-          if (ledgerError instanceof Error) {
-            errorDetail = ledgerError.message;
-            
-            // Check specific error types
-            if (errorDetail.includes('Canister') && errorDetail.includes('not found')) {
-              console.error('Missing canister error: Ensure the ledger canister is in the whitelist');
-              toast.error('Missing canister access. Please disconnect and try again');
-            } else if (errorDetail.includes('Failed to fetch') || errorDetail.includes('network error')) {
-              console.error('Network error: Cannot connect to the IC network');
-              toast.error('Network connectivity issue. Please check your connection');
-            }
-          }
-          
-          if (isDev) {
-            // Use mock tokens in development mode
-            tokens = MOCK_TOKENS;
-            usingMockTokens = true;
-            toast.error('Using mock tokens for development');
-          } else if (tokens.length === 0) {
-            // Fallback in production with a minimal token entry
-            tokens = [
-              {
-                id: 'icp-1',
-                symbol: 'ICP',
-                name: 'Internet Computer',
-                balance: '100000000', // 1 ICP in e8s
-                amount: '1',
-                decimals: 8
-              }
-            ];
-            usingMockTokens = true;
-            toast.error('Using placeholder token balance due to: ' + (errorDetail || 'Unknown error'));
-          }
+        }
+      } catch (ledgerError) {
+        console.error('Failed to fetch balance from ledger:', ledgerError);
+        
+        if (isDev) {
+          // Use mock tokens in development mode
+          tokens = MOCK_TOKENS;
+          usingMockTokens = true;
+          console.warn('Using mock tokens in development mode');
+        } else {
+          throw ledgerError;
         }
       }
       
@@ -539,7 +444,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Prepare the wallet data
       const walletData: WalletData = {
         principal: principalText,
-        accountId,
+        accountId: accountId || principalText,
         nfts,
         tokens,
         usingMockData: usingMockTokens,
@@ -566,9 +471,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Save connection state
       localStorage.setItem('wallet_connected', 'true');
       localStorage.setItem('wallet_type', 'plug');
-      
-      // Start connection monitoring
-      startConnectionMonitoring(plug);
       
       return walletData;
     } catch (error) {
