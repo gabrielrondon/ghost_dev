@@ -1,7 +1,7 @@
 import { AuthClient } from '@dfinity/auth-client';
 import { Actor, HttpAgent, Identity } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
-import { ICP_LEDGER_CANISTER_ID } from './ledger';
+import { ICP_LEDGER_CANISTER_ID, getICPTokenData } from './ledger';
 import type { ICPToken } from '@/types/wallet';
 
 // Constants for Stoic Wallet
@@ -140,22 +140,34 @@ export async function getStoicBalances(
   principal: Principal
 ): Promise<ICPToken[]> {
   try {
-    // For now, we'll return a basic ICP token with placeholder data
-    // In a real implementation, you would query the ledger canister for real balances
-    const tokens: ICPToken[] = [
-      {
-        id: `icp-${Math.random().toString(36).substring(2, 9)}`,
-        symbol: 'ICP',
-        name: 'Internet Computer',
-        balance: '100000000', // 1 ICP in e8s as a placeholder
-        amount: '1',
-        decimals: 8
-      }
-    ];
+    console.log('Fetching balances for Stoic wallet...');
+    const principalText = principal.toString();
+    
+    // Get actual ICP token data from the ledger
+    const icpToken = await getICPTokenData(principalText);
+    console.log('ICP balance fetched:', icpToken);
+    
+    // Put this in an array to match the expected return type
+    // In the future, this could be extended to query other token canisters as well
+    const tokens: ICPToken[] = [icpToken];
 
     return tokens;
   } catch (error) {
     console.error('Error fetching Stoic balances:', error);
+    
+    // If in development mode, return mock data
+    if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_DATA === 'true') {
+      console.warn('Using mock data for Stoic wallet in development mode');
+      return [{
+        id: `icp-${Math.random().toString(36).substring(2, 9)}`,
+        symbol: 'ICP',
+        name: 'Internet Computer',
+        balance: '100000000', // 1 ICP in e8s
+        amount: '1',
+        decimals: 8
+      }];
+    }
+    
     throw error;
   }
 }

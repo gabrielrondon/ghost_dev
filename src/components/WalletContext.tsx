@@ -11,6 +11,7 @@ import {
 import { Principal } from '@dfinity/principal';
 import { IDL } from '@dfinity/candid';
 import { type WalletType } from './WalletSelector';
+import { AuthClient } from '@dfinity/auth-client';
 
 // Constants
 const ZK_CANISTER_ID = import.meta.env.VITE_ZK_CANISTER_ID || 'hjhzy-qyaaa-aaaak-qc3nq-cai';
@@ -642,19 +643,63 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     toast.success('Wallet disconnected');
   };
 
-  // Try to restore session on component mount
+  // Check for existing authentication on mount
   useEffect(() => {
-    const isConnected = localStorage.getItem('wallet_connected') === 'true';
-    const savedWalletType = localStorage.getItem('wallet_type') as WalletType | null;
+    const checkExistingConnection = async () => {
+      const walletConnected = localStorage.getItem('wallet_connected') === 'true';
+      const walletType = localStorage.getItem('wallet_type') as WalletType | null;
+      
+      if (walletConnected && walletType) {
+        console.log(`Found existing ${walletType} wallet connection, attempting to reconnect...`);
+        
+        try {
+          setIsConnecting(true);
+          
+          if (walletType === 'stoic') {
+            // Create auth client and check if authenticated
+            const authClient = await AuthClient.create();
+            const isAuthenticated = await authClient.isAuthenticated();
+            
+            if (isAuthenticated) {
+              console.log('Found existing Stoic authentication, reconnecting...');
+              await connectStoic();
+            } else {
+              console.log('Previous Stoic session expired, clearing local storage');
+              localStorage.removeItem('wallet_connected');
+              localStorage.removeItem('wallet_type');
+            }
+          } else if (walletType === 'plug') {
+            // Check if Plug exists in the window
+            const plugExists = await checkForPlugWallet();
+            
+            if (plugExists) {
+              const plug = (window as any).ic.plug as ICPlug;
+              
+              if (typeof plug.isConnected === 'function') {
+                const isConnected = await plug.isConnected();
+                
+                if (isConnected) {
+                  console.log('Found existing Plug connection, reconnecting...');
+                  await connectPlug();
+                } else {
+                  console.log('Previous Plug session expired, clearing local storage');
+                  localStorage.removeItem('wallet_connected');
+                  localStorage.removeItem('wallet_type');
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error reconnecting to wallet:', error);
+          localStorage.removeItem('wallet_connected');
+          localStorage.removeItem('wallet_type');
+        } finally {
+          setIsConnecting(false);
+        }
+      }
+    };
     
-    if (isConnected && savedWalletType) {
-      // Auto-connect based on saved wallet type
-      connect(savedWalletType).catch(error => {
-        console.error('Failed to auto-connect wallet:', error);
-        localStorage.removeItem('wallet_connected');
-        localStorage.removeItem('wallet_type');
-      });
-    }
+    checkExistingConnection();
   }, []);
 
   // Context value
