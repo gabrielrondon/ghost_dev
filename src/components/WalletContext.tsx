@@ -12,6 +12,7 @@ import { Principal } from '@dfinity/principal';
 import { IDL } from '@dfinity/candid';
 import { type WalletType } from './WalletSelector';
 import { AuthClient } from '@dfinity/auth-client';
+import { checkForPlugWallet, getConnectionProtocol } from '@/utils/wallet-utils';
 
 // Constants
 const ZK_CANISTER_ID = import.meta.env.VITE_ZK_CANISTER_ID || 'hjhzy-qyaaa-aaaak-qc3nq-cai';
@@ -46,18 +47,6 @@ const MOCK_TOKENS: ICPToken[] = [
 
 // Determine if we're in development mode
 const isDev = import.meta.env.DEV === true;
-
-// Helper function to check if Plug wallet exists with timeout
-const checkForPlugWallet = async (maxAttempts = 5, interval = 500): Promise<boolean> => {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    if (window.hasOwnProperty('ic') && (window as any).ic?.hasOwnProperty('plug')) {
-      return true;
-    }
-    // Wait before next check
-    await new Promise(resolve => setTimeout(resolve, interval));
-  }
-  return false;
-};
 
 // Helper function to detect Plug wallet version
 const detectPlugVersion = async (): Promise<string> => {
@@ -318,14 +307,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   // Connect to Plug Wallet
-  const connectPlug = async (): Promise<WalletData | null> => {
+  const connectPlug = async (silentMode = false): Promise<WalletData | null> => {
     try {
-      // Improved Plug wallet detection with timeout
+      console.log('Connecting to Plug wallet...');
+      
+      // Check if Plug is available using the utility function
       const plugExists = await checkForPlugWallet();
+      
       if (!plugExists) {
-        toast.error('Plug wallet not found. Please install the Plug extension first.');
-        return null;
+        if (!silentMode) {
+          toast.error('Plug wallet not detected. Please install the Plug extension.');
+        }
+        throw new Error('Plug wallet not detected');
       }
+      
+      // Get connection protocol info
+      const { useHttps, host } = getConnectionProtocol();
+      console.log(`Connecting to Plug with host: ${host}, using HTTPS: ${useHttps}`);
       
       // Use type assertion to access Plug methods
       const plug = (window as any).ic.plug as ICPlug;
@@ -363,7 +361,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isConnected = await withRetry(
           () => plug.requestConnect({
             whitelist: canisterIds,
-            host: import.meta.env.VITE_IC_HOST || 'https://icp0.io'
+            host: useHttps ? 'https://icp0.io' : 'http://localhost:8000'
           }),
           3,
           1000,
@@ -457,7 +455,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                     ZK_CANISTER_ID,
                     MAIN_CANISTER_ID
                   ], 
-                  host: import.meta.env.VITE_IC_HOST || 'https://icp0.io'
+                  host: useHttps ? 'https://icp0.io' : 'http://localhost:8000'
                 }),
                 3,
                 500,

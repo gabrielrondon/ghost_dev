@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/header';
 import ProofGenerator from '@/components/features/proof-generator';
 import { VerificationPage } from '@/components/features/verification';
 import { Providers } from '@/app/providers';
+import { WalletStatus } from './components/WalletStatus';
 
 function App() {
   const [verificationProofId, setVerificationProofId] = useState<string | null>(null);
@@ -42,6 +43,7 @@ function App() {
         <Header />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {process.env.NODE_ENV === 'development' && <WalletStatus />}
           <ProofGenerator />
         </main>
       </div>

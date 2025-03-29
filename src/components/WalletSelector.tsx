@@ -40,17 +40,18 @@ const isPlugEnabled = import.meta.env.VITE_ENABLE_PLUG === 'true';
 
 const walletOptions: WalletOption[] = [
   {
-    id: 'stoic',
+    id: 'stoic' as WalletType,
     name: 'Stoic Wallet',
     icon: <StoicIcon />,
-    available: isStoicEnabled
+    available: isStoicEnabled,
+    comingSoon: false
   },
   {
-    id: 'plug',
+    id: 'plug' as WalletType,
     name: 'Plug Wallet',
     icon: <PlugIcon />,
-    available: isPlugEnabled,
-    comingSoon: !isPlugEnabled
+    available: true,
+    comingSoon: false
   }
 ];
 
