@@ -40,40 +40,22 @@ function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof document !== 'undefined';
 }
 
+let stoicIdentity: any = null;
+
 /**
- * Connect to Stoic wallet and return principal and agent
+ * Connect to Stoic wallet
+ * @returns Principal ID as string
  */
-export async function connectToStoicWallet(): Promise<StoicConnectionResult | null> {
+export async function connectStoicWallet(): Promise<string> {
   try {
-    console.log('Connecting to Stoic wallet...');
+    stoicIdentity = await StoicIdentity.connect();
     
-    // Try to connect to Stoic
-    const identity = await StoicIdentity.connect();
-    
-    if (!identity) {
-      console.error('No identity returned from Stoic');
-      return null;
+    if (!stoicIdentity) {
+      throw new Error('Failed to connect to Stoic wallet');
     }
-    
-    console.log('Identity received from Stoic');
-    
-    // Create an agent with the identity
-    const agent = new HttpAgent({ identity });
-    
-    // Skip verification if not in production
-    if (process.env.NODE_ENV !== 'production') {
-      await agent.fetchRootKey();
-    }
-    
-    // Get the principal from the identity
-    const principal = identity.getPrincipal();
-    console.log('Stoic principal:', principal.toString());
-    
-    return {
-      principal,
-      identity,
-      agent
-    };
+
+    const principal = stoicIdentity.getPrincipal();
+    return principal.toText();
   } catch (error) {
     console.error('Error connecting to Stoic wallet:', error);
     throw error;
@@ -83,12 +65,15 @@ export async function connectToStoicWallet(): Promise<StoicConnectionResult | nu
 /**
  * Disconnect from Stoic wallet
  */
-export function disconnectFromStoicWallet(): void {
+export async function disconnectStoicWallet(): Promise<void> {
   try {
-    StoicIdentity.disconnect();
-    console.log('Disconnected from Stoic wallet');
+    if (stoicIdentity) {
+      await StoicIdentity.disconnect();
+      stoicIdentity = null;
+    }
   } catch (error) {
     console.error('Error disconnecting from Stoic wallet:', error);
+    throw error;
   }
 }
 

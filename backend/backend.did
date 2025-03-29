@@ -27,6 +27,26 @@ type VerificationResult = record {
     anonymous_reference: text;
 };
 
+type TokenProofRequest = record {
+    token_id: text;
+    min_balance: nat64;
+    wallet_address: text;
+};
+
+type TokenProofResult = record {
+    proof_id: text;
+    merkle_root: text;
+    proof_data: text;
+    anonymous_reference: text;
+    timestamp: nat64;
+    is_valid: bool;
+};
+
+type TokenVerificationRequest = record {
+    proof_id: text;
+    anonymous_reference: text;
+};
+
 service : {
     generate_reference: () -> (text);
     assign_task: (reference_id: text, description: text, config: opt TaskConfig) -> (opt text);
@@ -37,4 +57,10 @@ service : {
     // NFT verification endpoints
     verify_nft_ownership: (request: WalletVerificationRequest) -> (VerificationResult);
     get_verification_proof: (proof_id: text) -> (opt VerificationResult) query;
+
+    // New ZK proof methods
+    generate_token_proof: (request: TokenProofRequest) -> (TokenProofResult);
+    verify_token_proof: (request: TokenVerificationRequest) -> (bool) query;
+    get_merkle_root: () -> (text) query;
+    update_merkle_root: (root: text) -> ();
 }

@@ -1,108 +1,157 @@
 use dep::std;
 
+// Error types for better error handling
+enum CircuitError {
+    InvalidDepth,
+    InvalidBalance,
+    InvalidMerklePath,
+    InvalidHash
+}
+
 struct CircuitInput {
     // Public inputs
-    collection_id: Field,
     token_id: Field,
     min_balance: Field,
     merkle_root: Field,
+    tree_depth: Field,
 
     // Private inputs
     wallet_principal: Field,
     actual_balance: Field,
-    nft_merkle_path: [Field; 32],
-    nft_path_indices: [u8; 32],
-    token_merkle_path: [Field; 32],
-    token_path_indices: [u8; 32]
+    merkle_path: [Field; 32],
+    path_indices: [u8; 32]
 }
 
-fn main(input: CircuitInput) {
+fn validate_input(input: CircuitInput) -> bool {
+    // Validate tree depth
+    let depth = input.tree_depth as u8;
+    if depth <= 0 || depth > 32 {
+        return false;
+    }
+
+    // Validate balance with overflow check
+    let actual_balance_int = input.actual_balance as u64;
+    let min_balance_int = input.min_balance as u64;
+    if actual_balance_int < min_balance_int {
+        return false;
+    }
+
+    // All validations passed
+    true
+}
+
+pub fn main(input: CircuitInput) -> pub bool {
+    // Validate input first
+    assert(validate_input(input));
+
+    // Validate tree depth
+    let depth = input.tree_depth as u8;
+    assert(depth > 0 && depth <= 32);
+
+    // Validate balance with overflow protection
     let actual_balance_int = input.actual_balance as u64;
     let min_balance_int = input.min_balance as u64;
     assert(actual_balance_int >= min_balance_int);
 
-    let nft_leaf = std::hash::poseidon::bn254::hash_2([input.collection_id, input.token_id]);
-    let token_leaf = std::hash::poseidon::bn254::hash_2([input.wallet_principal, input.actual_balance]);
-
-    let computed_nft_root = compute_merkle_root(nft_leaf, input.nft_merkle_path, input.nft_path_indices);
-    let computed_token_root = compute_merkle_root(token_leaf, input.token_merkle_path, input.token_path_indices);
-
-    assert(computed_nft_root == input.merkle_root);
-    assert(computed_token_root == input.merkle_root);
+    // Compute leaf with improved gas efficiency
+    let leaf = compute_leaf(input.wallet_principal, input.token_id, input.actual_balance);
+    
+    // Verify Merkle proof with optimized computation
+    let computed_root = compute_merkle_root(leaf, input.merkle_path, input.path_indices, depth);
+    assert(computed_root == input.merkle_root);
+    
+    true
 }
 
-fn compute_merkle_root(leaf: Field, merkle_path: [Field; 32], path_indices: [u8; 32]) -> Field {
+fn compute_leaf(wallet: Field, token: Field, balance: Field) -> Field {
+    // Optimized hash computation for leaf node
+    std::hash::poseidon::bn254::hash_3([wallet, token, balance])
+}
+
+fn compute_merkle_root(leaf: Field, merkle_path: [Field; 32], path_indices: [u8; 32], depth: u8) -> Field {
     let mut current = leaf;
-    for i in 0..2 {
-        std::println(current);
-        std::println(merkle_path[i]);
-        std::println(path_indices[i]);
+    
+    // Gas-optimized Merkle root computation
+    for i in 0..depth {
+        // Validate path index
+        assert(path_indices[i] == 0 || path_indices[i] == 1);
         
-        if path_indices[i] == 0 {
-            current = std::hash::poseidon::bn254::hash_2([current, merkle_path[i]]);
+        // Use bit operations for efficiency
+        let path_bit = path_indices[i] & 1;
+        let (left, right) = if path_bit == 0 {
+            (current, merkle_path[i])
         } else {
-            current = std::hash::poseidon::bn254::hash_2([merkle_path[i], current]);
-        }
-        std::println(current);
+            (merkle_path[i], current);
+        };
+        
+        current = std::hash::poseidon::bn254::hash_2([left, right]);
     }
+    
     current
 }
 
 #[test]
-fn test_main() {
-    let collection_id = 1;
-    let token_id = 2;
-    let wallet_principal = 123456789;
-    let actual_balance = 200;
-    let min_balance = 100;
-    
-    // Compute the leaves
-    let nft_leaf = std::hash::poseidon::bn254::hash_2([collection_id, token_id]);
-    let token_leaf = std::hash::poseidon::bn254::hash_2([wallet_principal, actual_balance]);
-    
-    std::println(nft_leaf);
-    std::println(token_leaf);
-    
-    // Compute the Merkle tree
-    let level1_left = std::hash::poseidon::bn254::hash_2([nft_leaf, token_leaf]);
-    let level1_right = std::hash::poseidon::bn254::hash_2([1, 2]); // Same random values as JS
-    let merkle_root = std::hash::poseidon::bn254::hash_2([level1_left, level1_right]);
-    
-    std::println(level1_left);
-    std::println(level1_right);
-    std::println(merkle_root);
-
-    // Set up NFT Merkle path
-    let mut nft_merkle_path: [Field; 32] = [0; 32];
-    nft_merkle_path[0] = token_leaf;    // Sibling at level 0
-    nft_merkle_path[1] = level1_right;  // Sibling at level 1
-
-    // Set up token Merkle path
-    let mut token_merkle_path: [Field; 32] = [0; 32];
-    token_merkle_path[0] = nft_leaf;     // Sibling at level 0
-    token_merkle_path[1] = level1_right; // Sibling at level 1
-
-    // Path indices from Prover.toml
-    let mut nft_path_indices: [u8; 32] = [0; 32];
-    nft_path_indices[0] = 0; // NFT leaf is on the left
-    nft_path_indices[1] = 0; // level1_left is on the left
-
-    let mut token_path_indices: [u8; 32] = [0; 32];
-    token_path_indices[0] = 1; // Token leaf is on the right
-    token_path_indices[1] = 0; // level1_left is on the left
-
+fn test_valid_proof() {
     let input = CircuitInput {
-        collection_id,
-        token_id,
-        wallet_principal,
-        actual_balance,
-        min_balance,
-        merkle_root,
-        nft_merkle_path,
-        nft_path_indices,
-        token_merkle_path,
-        token_path_indices
+        token_id: 1.into(),
+        min_balance: 100.into(),
+        merkle_root: 123.into(), // Test value
+        tree_depth: 32.into(),
+        wallet_principal: 456.into(), // Test value
+        actual_balance: 200.into(),
+        merkle_path: [1.into(); 32], // Test path
+        path_indices: [0; 32] // Test indices
     };
 
-    main(input);
+    assert(validate_input(input));
+    assert(main(input));
+}
+
+#[test]
+fn test_invalid_balance() {
+    let input = CircuitInput {
+        token_id: 1.into(),
+        min_balance: 200.into(),
+        merkle_root: 123.into(),
+        tree_depth: 32.into(),
+        wallet_principal: 456.into(),
+        actual_balance: 100.into(), // Less than min_balance
+        merkle_path: [1.into(); 32],
+        path_indices: [0; 32]
+    };
+
+    assert(!validate_input(input));
+}
+
+#[test]
+fn test_invalid_depth() {
+    let input = CircuitInput {
+        token_id: 1.into(),
+        min_balance: 100.into(),
+        merkle_root: 123.into(),
+        tree_depth: 33.into(), // Invalid depth
+        wallet_principal: 456.into(),
+        actual_balance: 200.into(),
+        merkle_path: [1.into(); 32],
+        path_indices: [0; 32]
+    };
+
+    assert(!validate_input(input));
+}
+
+#[test]
+fn test_merkle_path_computation() {
+    let wallet = 1.into();
+    let token = 2.into();
+    let balance = 100.into();
+    
+    let leaf = compute_leaf(wallet, token, balance);
+    assert(leaf != 0.into());
+    
+    let merkle_path = [1.into(); 32];
+    let path_indices = [0; 32];
+    let depth = 32;
+    
+    let root = compute_merkle_root(leaf, merkle_path, path_indices, depth);
+    assert(root != 0.into());
 }

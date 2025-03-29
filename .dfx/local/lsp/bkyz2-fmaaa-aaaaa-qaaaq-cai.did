@@ -1,0 +1,58 @@
+type AttestationData = 
+ record {
+   collection_id: nat64;
+   merkle_proof: vec record {
+                       index: nat64;
+                       value: vec nat8;
+                     };
+   minimum_balance: nat64;
+   timestamp: int;
+   token_canister_id: principal;
+   token_id: nat64;
+   wallet_principal: principal;
+ };
+service : {
+  create_attestation:
+   (record {
+      collection_id: nat64;
+      minimum_balance: nat64;
+      token_canister_id: principal;
+      token_id: nat64;
+      wallet_principal: principal;
+    }) ->
+   (variant {
+      Err: text;
+      Ok: record {
+            attestation: AttestationData;
+            proof_id: text;
+          };
+    });
+  get_canister_principal: () -> (principal);
+  get_logs: () ->
+   (vec
+     record {
+       details: opt text;
+       level: variant {
+                Debug;
+                Error;
+                Info;
+                Warning;
+              };
+       message: text;
+       timestamp: int;
+     }) query;
+  get_metrics: () ->
+   (record {
+      failed_verifications: nat;
+      last_cleanup: int;
+      request_count: nat;
+      successful_verifications: nat;
+      total_attestations: nat;
+      total_processing_time: int;
+    }) query;
+  reset_metrics: () -> ();
+  verify_attestation: (text) -> (variant {
+                                   Err: text;
+                                   Ok: bool;
+                                 });
+}

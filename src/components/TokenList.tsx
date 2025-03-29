@@ -1,28 +1,30 @@
 import { useState, useMemo } from 'react'
-import { SearchIcon, CheckCircle2 } from 'lucide-react'
+import { SearchIcon, CheckCircle2, AlertCircle } from 'lucide-react'
 import { cn } from '@/utils'
-import { formatICPBalance } from '@/services/ledger'
 import { ICPToken } from '@/types/wallet'
+import { useTokenBalances } from '@/hooks/useTokenBalances'
+import { useWallet } from '@/hooks/use-wallet'
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface TokenListProps {
-  tokens: ICPToken[]
-  isLoading?: boolean
   onSelectToken?: (tokenId: string) => void
   selectedTokenId?: string
 }
 
 export function TokenList({
-  tokens = [],
-  isLoading = false,
   onSelectToken,
   selectedTokenId
 }: TokenListProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const { principal } = useWallet()
+  const { tokens, isLoading, error, refreshBalances } = useTokenBalances({
+    principal
+  })
   
   const filteredTokens = useMemo(() => {
     if (!searchQuery.trim()) return tokens
@@ -42,6 +44,24 @@ export function TokenList({
   
   if (isLoading) {
     return <TokenListSkeleton />
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load tokens: {error.message}
+          <Button
+            variant="link"
+            className="p-0 h-auto font-normal text-destructive-foreground underline ml-2"
+            onClick={refreshBalances}
+          >
+            Retry
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
   }
   
   if (tokens.length === 0) {
@@ -91,74 +111,56 @@ interface TokenCardProps {
   onSelect: () => void
 }
 
-function TokenCard({ token, isSelected = false, onSelect }: TokenCardProps) {
-  // Format the balance to human-readable format
+function TokenCard({ token, isSelected, onSelect }: TokenCardProps) {
   const formattedBalance = useMemo(() => {
-    if (token.symbol === 'ICP') {
-      return token.amount || formatICPBalance(BigInt(token.balance))
-    }
-    
-    // Format other tokens appropriately
-    const amount = Number(token.amount) || Number(token.balance) / Math.pow(10, token.decimals || 8)
+    const amount = Number(token.balance) / Math.pow(10, token.decimals || 8)
     return amount.toLocaleString('en-US', {
-      maximumFractionDigits: 4,
+      maximumFractionDigits: token.decimals || 8,
       minimumFractionDigits: 0
     })
   }, [token])
-  
-  // Calculate estimated USD value if available
-  const estimatedUSD = useMemo(() => {
-    if (!token.price) return null
-    
-    const tokenAmount = Number(token.amount || token.balance) / Math.pow(10, token.decimals || 8)
-    const usdValue = tokenAmount * token.price
-    
-    // Only show if the value is meaningful
-    if (usdValue < 0.01) return null
-    
-    return `$${usdValue.toLocaleString('en-US', {
-      maximumFractionDigits: 2,
-      minimumFractionDigits: 2
-    })}`
-  }, [token])
-  
+
   return (
-    <Card 
+    <Card
+      role="button"
+      tabIndex={0}
       className={cn(
-        "p-3 cursor-pointer transition-all hover:shadow-md flex justify-between items-center",
-        isSelected && "border-primary ring-1 ring-primary"
+        'p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors',
+        isSelected && 'bg-muted'
       )}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
     >
-      <div className="flex items-center space-x-3">
-        {token.logoUrl ? (
-          <img 
-            src={token.logoUrl} 
-            alt={token.symbol} 
-            className="w-8 h-8 rounded-full"
-          />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-            <span className="text-xs font-medium">{token.symbol.substring(0, 2)}</span>
-          </div>
-        )}
-        
-        <div>
-          <p className="font-medium">{token.name}</p>
-          <p className="text-xs text-muted-foreground">{token.symbol}</p>
+      {token.logoUrl ? (
+        <img
+          src={token.logoUrl}
+          alt={token.symbol}
+          className="w-8 h-8 rounded-full"
+        />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+          <span className="text-sm font-medium">{token.symbol[0]}</span>
         </div>
+      )}
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-medium truncate">{token.name}</p>
+          <span className="text-sm text-muted-foreground">{token.symbol}</span>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {formattedBalance} {token.symbol}
+        </p>
       </div>
       
-      <div className="flex items-center space-x-2">
-        <div className="text-right">
-          <p className="font-medium">{formattedBalance}</p>
-          {estimatedUSD && <p className="text-xs text-muted-foreground">{estimatedUSD}</p>}
-        </div>
-        
-        {isSelected && (
-          <CheckCircle2 className="h-5 w-5 text-primary ml-2" />
-        )}
-      </div>
+      {isSelected && (
+        <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+      )}
     </Card>
   )
 }
@@ -168,7 +170,7 @@ function TokenListSkeleton() {
     <div className="w-full space-y-3">
       <Skeleton className="h-10 w-full" />
       <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-[72px] w-full" />
         ))}
       </div>

@@ -49,6 +49,23 @@ struct VerificationResult {
     anonymous_reference: String,
 }
 
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+struct TokenProofRequest {
+    token_id: String,
+    min_balance: u64,
+    wallet_address: String,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+struct TokenProofResult {
+    proof_id: String,
+    merkle_root: String,
+    proof_data: Vec<(u8, Vec<u8>)>,
+    anonymous_reference: String,
+    timestamp: u64,
+    is_valid: bool,
+}
+
 impl Storable for Reference {
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
         std::borrow::Cow::Owned(serde_json::to_vec(self).unwrap())
@@ -93,6 +110,20 @@ thread_local! {
         std::cell::RefCell::new(StableBTreeMap::init(
             ic_stable_structures::memory_manager::MemoryManager::init(DefaultMemoryImpl::default())
                 .get(2)
+        ));
+}
+
+// Storage for merkle root
+thread_local! {
+    static MERKLE_ROOT: std::cell::RefCell<String> = std::cell::RefCell::new(String::new());
+}
+
+// Storage for token proofs
+thread_local! {
+    static TOKEN_PROOFS: std::cell::RefCell<StableBTreeMap<StorableString, TokenProofResult, VirtualMemory<DefaultMemoryImpl>>> = 
+        std::cell::RefCell::new(StableBTreeMap::init(
+            ic_stable_structures::memory_manager::MemoryManager::init(DefaultMemoryImpl::default())
+                .get(3)
         ));
 }
 
@@ -339,4 +370,104 @@ fn get_verification_proof(proof_id: String) -> Option<VerificationResult> {
     VERIFICATION_RESULTS.with(|results| {
         results.borrow().get(&StorableString(proof_id)).cloned()
     })
+}
+
+#[update]
+async fn generate_token_proof(request: TokenProofRequest) -> Result<TokenProofResult, String> {
+    // Validate request
+    if request.min_balance == 0 {
+        return Err("Minimum balance must be greater than 0".to_string());
+    }
+
+    // Get current merkle root
+    let merkle_root = MERKLE_ROOT.with(|root| root.borrow().clone());
+    if merkle_root.is_empty() {
+        return Err("Merkle root not initialized".to_string());
+    }
+
+    // Generate proof data (in production, this would use the ZK circuit)
+    let proof_data = generate_zk_token_proof(&request, &merkle_root);
+    
+    let proof_id = Uuid::new_v4().to_string();
+    let anonymous_reference = Uuid::new_v4().to_string();
+    
+    let result = TokenProofResult {
+        proof_id: proof_id.clone(),
+        merkle_root: merkle_root.clone(),
+        proof_data,
+        anonymous_reference: anonymous_reference.clone(),
+        timestamp: time(),
+        is_valid: true,
+    };
+    
+    // Store the proof
+    TOKEN_PROOFS.with(|proofs| {
+        proofs.borrow_mut().insert(StorableString(proof_id.clone()), result.clone());
+    });
+    
+    Ok(result)
+}
+
+#[query]
+fn verify_token_proof(request: TokenVerificationRequest) -> bool {
+    TOKEN_PROOFS.with(|proofs| {
+        if let Some(proof) = proofs.borrow().get(&StorableString(request.proof_id.clone())) {
+            // Verify the anonymous reference matches
+            if proof.anonymous_reference != request.anonymous_reference {
+                return false;
+            }
+            
+            // Verify the merkle root is still valid
+            let current_root = MERKLE_ROOT.with(|root| root.borrow().clone());
+            if proof.merkle_root != current_root {
+                return false;
+            }
+            
+            // Verify the proof hasn't expired (24 hours)
+            let current_time = time();
+            if current_time - proof.timestamp > 24 * 60 * 60 * 1_000_000_000 {
+                return false;
+            }
+            
+            proof.is_valid
+        } else {
+            false
+        }
+    })
+}
+
+#[query]
+fn get_merkle_root() -> Result<String, String> {
+    MERKLE_ROOT.with(|root| {
+        let root = root.borrow().clone();
+        if root.is_empty() {
+            Err("Merkle root not initialized".to_string())
+        } else {
+            Ok(root)
+        }
+    })
+}
+
+#[update]
+fn update_merkle_root(root: String) -> Result<(), String> {
+    if root.is_empty() {
+        return Err("Merkle root cannot be empty".to_string());
+    }
+    
+    MERKLE_ROOT.with(|current_root| {
+        *current_root.borrow_mut() = root;
+    });
+    
+    Ok(())
+}
+
+fn generate_zk_token_proof(request: &TokenProofRequest, merkle_root: &str) -> Vec<(u8, Vec<u8>)> {
+    // This is a placeholder for the actual ZK proof generation
+    // In production, this would:
+    // 1. Get the actual token balance from the ledger
+    // 2. Generate a ZK proof using the circuit
+    // 3. Return the proof data
+    
+    // For now, we'll return a dummy proof
+    vec![(0, vec![0u8; 32])]
 }

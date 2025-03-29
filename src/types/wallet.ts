@@ -1,3 +1,5 @@
+export type WalletType = 'plug' | 'stoic'
+
 export interface WalletInfo {
   isConnected: boolean
   principal?: string
@@ -26,22 +28,19 @@ export interface ICPToken {
   name: string
   symbol: string
   balance: string
-  amount?: string
+  amount: string
   decimals: number
-  price?: number
-  logoUrl?: string
+  price: number
+  logoUrl: string
 }
 
 export interface ICPTransaction {
-  id: string
-  type: 'send' | 'receive' | 'swap' | 'mint' | 'burn'
+  hash: string
+  from: string
+  to: string
   amount: string
-  token: string
-  timestamp: string
-  blockHeight: string
-  from?: string
-  to?: string
-  status: 'completed' | 'pending' | 'failed'
+  timestamp: number
+  status: 'pending' | 'completed' | 'failed'
 }
 
 export type ICPTransactionType = ICPTransaction['type'] 

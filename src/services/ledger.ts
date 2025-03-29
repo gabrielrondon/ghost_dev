@@ -1,4 +1,4 @@
-import type { IDL as CandidTypes } from '@dfinity/candid';
+import { IDL } from '@dfinity/candid';
 import { Actor, HttpAgent } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import { ICP_LEDGER_CANISTER_ID } from '@/constants';
@@ -9,14 +9,16 @@ import type { ICPToken } from '@/types/wallet';
 // Create a minimal interface for the ledger canister
 interface LedgerCanister {
   account_balance: (args: { account: Array<number> }) => Promise<{ e8s: bigint }>;
+  list_tokens: (args: { account: Array<number> }) => Promise<Array<{ token_id: string, balance: bigint }>>;
 }
 
-// Ledger canister IDL factory
-const ledgerIdlFactory = ({ IDL }: { IDL: any }) => {
+// Create the IDL factory for the ledger canister
+const ledgerIdlFactory = ({ IDL }: { IDL: typeof IDL }) => {
   const AccountIdentifier = IDL.Vec(IDL.Nat8);
   const Tokens = IDL.Record({ 'e8s' : IDL.Nat64 });
   return IDL.Service({
     'account_balance' : IDL.Func([IDL.Record({ 'account' : AccountIdentifier })], [Tokens], ['query']),
+    'list_tokens' : IDL.Func([IDL.Record({ 'account' : AccountIdentifier })], [IDL.Vec(IDL.Record({ token_id: IDL.Text, balance: IDL.Nat64 }))], ['query']),
   });
 };
 
@@ -79,77 +81,26 @@ export class CustomAccountIdentifier {
 }
 
 /**
- * Gets the ICP balance for a principal
- * @param principalText The principal to get the balance for
- * @returns The balance in e8s
+ * Format ICP balance from e8s to ICP with detailed output
  */
-export async function getICPBalance(principalText: string): Promise<bigint> {
-  try {
-    // Create a principal from the text representation
-    const principal = Principal.fromText(principalText);
-    
-    // Create an account identifier from the principal
-    const accountIdentifier = CustomAccountIdentifier.fromPrincipal(principal);
-    
-    // Create an agent to interact with the IC
-    const agent = new HttpAgent({
-      host: import.meta.env.VITE_IC_HOST || 'https://icp0.io'
-    });
-    
-    // For local development, can call agent.fetchRootKey() if needed
-    // In production, we don't need this
-    
-    // Create an actor to interact with the ledger canister
-    const actor = Actor.createActor(ledgerIdlFactory, {
-      agent,
-      canisterId: ICP_LEDGER_CANISTER_ID,
-    });
-    
-    // Query the balance - use type assertion for the actor
-    const result = await (actor as any).account_balance({
-      account: Array.from(accountIdentifier.toUint8Array())
-    });
-    
-    // Use type assertion for the result
-    return BigInt(result.e8s.toString());
-  } catch (error) {
-    console.error('Error getting ICP balance:', error);
-    throw error;
-  }
+export function formatICPBalanceDetailed(e8s: bigint): { e8s: string; icp: string } {
+  const e8sStr = e8s.toString();
+  const icp = (Number(e8s) / 100000000).toFixed(8);
+  return { e8s: e8sStr, icp };
 }
 
 /**
- * Format e8s (100 million e8s = 1 ICP) to a human-readable ICP amount
- * @param e8s The balance in e8s
- * @returns Formatted ICP amount as string
+ * Format ICP balance from e8s to ICP
  */
 export function formatICPBalance(e8s: bigint): string {
-  const icpBalance = Number(e8s) / 100_000_000;
-  return icpBalance.toFixed(8);
+  return (Number(e8s) / 100000000).toFixed(8);
 }
 
 /**
- * Formats an ICP balance from e8s (100,000,000th of an ICP) to a human-readable format
+ * Gets ICP token data for an account from the ledger canister
  */
-export function formatICPBalanceDetailed(balanceE8s: bigint): {
-  e8s: string;
-  icp: string;
-} {
-  const icpAmount = Number(balanceE8s) / 100_000_000;
-  return {
-    e8s: balanceE8s.toString(),
-    icp: icpAmount.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 8,
-    }),
-  };
-}
-
-/**
- * Gets ICP token data for a principal from the ledger canister
- */
-export async function getICPTokenData(principal: string): Promise<ICPToken> {
-  console.log(`Fetching ICP token data for principal: ${principal}`);
+export async function getICPTokenData(accountId: string): Promise<ICPToken> {
+  console.log(`Fetching ICP token data for account: ${accountId}`);
   
   try {
     // Get connection protocol (HTTP or HTTPS)
@@ -176,13 +127,7 @@ export async function getICPTokenData(principal: string): Promise<ICPToken> {
       canisterId,
     });
     
-    // Convert principal to account identifier
-    const principalObj = Principal.fromText(principal);
-    const accountId = principalToAccountIdentifier(principalObj);
-    
-    console.log(`Converted principal to account ID: ${accountId}`);
-    
-    // Query balance from ledger
+    // Query balance from ledger using account ID
     const balanceResult = await ledgerActor.account_balance({
       account: Array.from(Buffer.from(accountId, 'hex')),
     });
@@ -212,6 +157,60 @@ export async function getICPTokenData(principal: string): Promise<ICPToken> {
     return icpToken;
   } catch (error) {
     console.error('Error fetching ICP token data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Gets all tokens for an account from the ledger canister
+ */
+export async function getAccountTokens(accountId: string): Promise<ICPToken[]> {
+  try {
+    // First get ICP token data
+    const icpToken = await getICPTokenData(accountId);
+    const tokens = [icpToken];
+    
+    // Get connection protocol (HTTP or HTTPS)
+    const { useHttps } = getConnectionProtocol();
+    const agent = new HttpAgent({
+      host: useHttps ? 'https://icp0.io' : 'http://localhost:8000',
+    });
+    
+    // Skip verification in development environment
+    if (!useHttps) {
+      await agent.fetchRootKey();
+    }
+    
+    // Create actor for ledger
+    const ledgerActor = Actor.createActor<LedgerCanister>(ledgerIdlFactory, {
+      agent,
+      canisterId: ICP_LEDGER_CANISTER_ID,
+    });
+    
+    // Get list of all tokens for this account
+    const accountTokens = await ledgerActor.list_tokens({
+      account: Array.from(Buffer.from(accountId, 'hex')),
+    });
+    
+    // Process each token
+    for (const token of accountTokens) {
+      if (token.token_id !== 'icp') { // Skip ICP as we already have it
+        tokens.push({
+          id: `${token.token_id}-token`,
+          name: token.token_id.toUpperCase(),
+          symbol: token.token_id.toUpperCase(),
+          balance: token.balance.toString(),
+          amount: formatICPBalance(token.balance),
+          decimals: 8,
+          price: 0, // Would need to fetch from price feed
+          logoUrl: `/img/${token.token_id}-logo.svg`,
+        });
+      }
+    }
+    
+    return tokens;
+  } catch (error) {
+    console.error('Error fetching account tokens:', error);
     throw error;
   }
 } 
