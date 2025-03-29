@@ -314,16 +314,16 @@ function ProofGenerator() {
           const tokenId = `${token.symbol}:${token.amount}`;
           
           // Format the token amount with proper decimal places
-          const formattedAmount = parseFloat(token.amount).toLocaleString(undefined, {
+          const formattedAmount = parseFloat(token.amount || '0').toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 8
           });
           
           // Estimated USD value (mock for display purposes)
-          const estimatedUsdValue = token.symbol === 'ICP' 
-            ? parseFloat(token.amount) * 10 // Assume $10 per ICP
-            : token.symbol === 'ckBTC' 
-              ? parseFloat(token.amount) * 40000 // Assume $40,000 per BTC
+          const usdValue = token.symbol === 'ICP'
+            ? parseFloat(token.amount || '0') * 10 // Assume $10 per ICP
+            : token.symbol === 'BTC'
+              ? parseFloat(token.amount || '0') * 40000 // Assume $40,000 per BTC
               : 0; // Default for unknown tokens
           
           return (
@@ -352,7 +352,7 @@ function ProofGenerator() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium">{formattedAmount}</p>
-                  <p className="text-xs text-gray-400">≈ ${estimatedUsdValue.toFixed(2)} USD</p>
+                  <p className="text-xs text-gray-400">≈ ${usdValue.toFixed(2)} USD</p>
                 </div>
               </div>
             </div>

@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { SearchIcon, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/utils'
-import { Token } from '@/types'
-import { formatICPBalance } from '@/services/stoic-wallet'
+import { formatICPBalance } from '@/services/ledger'
+import { ICPToken } from '@/types/wallet'
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface TokenListProps {
-  tokens: Token[]
+  tokens: ICPToken[]
   isLoading?: boolean
   onSelectToken?: (tokenId: string) => void
   selectedTokenId?: string
@@ -86,7 +86,7 @@ export function TokenList({
 }
 
 interface TokenCardProps {
-  token: Token
+  token: ICPToken
   isSelected?: boolean
   onSelect: () => void
 }
@@ -95,11 +95,11 @@ function TokenCard({ token, isSelected = false, onSelect }: TokenCardProps) {
   // Format the balance to human-readable format
   const formattedBalance = useMemo(() => {
     if (token.symbol === 'ICP') {
-      return formatICPBalance(token.amount)
+      return token.amount || formatICPBalance(BigInt(token.balance))
     }
     
     // Format other tokens appropriately
-    const amount = Number(token.amount) / Math.pow(10, token.decimals || 8)
+    const amount = Number(token.amount) || Number(token.balance) / Math.pow(10, token.decimals || 8)
     return amount.toLocaleString('en-US', {
       maximumFractionDigits: 4,
       minimumFractionDigits: 0
@@ -110,7 +110,7 @@ function TokenCard({ token, isSelected = false, onSelect }: TokenCardProps) {
   const estimatedUSD = useMemo(() => {
     if (!token.price) return null
     
-    const tokenAmount = Number(token.amount) / Math.pow(10, token.decimals || 8)
+    const tokenAmount = Number(token.amount || token.balance) / Math.pow(10, token.decimals || 8)
     const usdValue = tokenAmount * token.price
     
     // Only show if the value is meaningful

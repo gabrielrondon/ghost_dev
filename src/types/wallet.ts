@@ -26,9 +26,10 @@ export interface ICPToken {
   name: string
   symbol: string
   balance: string
+  amount?: string
   decimals: number
-  amount: string
-  usdValue?: number
+  price?: number
+  logoUrl?: string
 }
 
 export interface ICPTransaction {
