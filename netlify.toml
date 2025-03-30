@@ -1,13 +1,13 @@
 [build]
-  command = "npm install --legacy-peer-deps && npm run build"
-  publish = "dist"
+  command = "npm run build"
+  publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20.11.1"
-  VITE_MAIN_CANISTER_ID = "hp6ha-baaaa-aaaad-aaloq-cai"
-  VITE_ZK_CANISTER_ID = "hi7bu-myaaa-aaaad-aaloa-cai"
-  VITE_IC_HOST = "https://icp0.io"
-  VITE_USE_MOCK_DATA = "false"
+  NEXT_USE_NETLIFY_EDGE = "true"
+  NODE_VERSION = "18"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 [[redirects]]
   from = "/*"
