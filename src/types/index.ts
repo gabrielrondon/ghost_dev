@@ -1,5 +1,4 @@
 import { Principal } from '@dfinity/principal'
-import { AttestationData } from '@/services/icp'
 
 // Verification types
 export type VerifiableItemType = 'nft' | 'token' | 'transaction' | 'governance'
@@ -11,15 +10,13 @@ export interface WalletVerificationRequest {
 }
 
 export interface VerificationResult {
-  id: string
-  timestamp: string
-  status: 'verified' | 'failed' | 'pending'
-  request: WalletVerificationRequest
-  attestation?: {
-    id: string
-    data: AttestationData
-  }
-  error?: string
+  success: boolean
+  message: string
+  tokenAddress?: string
+  tokenSymbol?: string
+  tokenName?: string
+  tokenDecimals?: number
+  tokenBalance?: string
 }
 
 // Task types

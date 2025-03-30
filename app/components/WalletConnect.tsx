@@ -18,39 +18,29 @@ export function WalletConnect() {
     setIsConnected(state.isConnected)
   }, [])
 
-  async function handleConnect(provider: 'stoic' | 'plug') {
+  const handleConnect = async (provider: 'stoic' | 'plug') => {
     try {
-      setIsConnecting(true)
-
-      if (provider === 'stoic') {
-        await walletService.connectStoic()
-      } else {
-        await walletService.connectPlug()
-      }
-
-      await canisterService.initializeActors()
-
-      setIsConnected(true)
+      await walletService.connect(provider)
+      await canisterService.initializeActors(walletService.getIdentity()!)
       toast({
-        title: 'Connected Successfully',
+        title: 'Connected',
         description: `Connected to ${provider} wallet`,
-        variant: 'default'
       })
     } catch (error) {
+      console.error('Failed to connect wallet:', error)
+      const message = error instanceof Error ? error.message : 'Unknown error'
       toast({
         title: 'Connection Failed',
-        description: error instanceof Error ? error.message : 'Failed to connect wallet',
-        variant: 'destructive'
+        description: message,
+        variant: 'destructive',
       })
-    } finally {
-      setIsConnecting(false)
     }
   }
 
   async function handleDisconnect() {
     try {
       await walletService.disconnect()
-      await canisterService.resetActors()
+      canisterService.resetActors()
       setIsConnected(false)
       toast({
         title: 'Disconnected',

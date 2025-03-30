@@ -1,5 +1,5 @@
 import { Actor } from '@dfinity/agent'
-import { backendCanister } from '@/declarations'
+import { backend } from '@/declarations/backend'
 import type { TokenProofRequest, TokenProofResult } from '@/declarations/backend/backend.did'
 
 interface GenerateProofParams {
@@ -30,7 +30,7 @@ export async function generateProof({
       wallet_address: walletAddress
     }
 
-    const result = await backendCanister.generate_token_proof(request)
+    const result = await backend.generate_token_proof(request)
 
     if ('Err' in result) {
       throw new Error(result.Err)
@@ -56,7 +56,7 @@ export async function verifyProof({
   merkleRoot: string
 }> {
   try {
-    const result = await backendCanister.verify_token_proof({
+    const result = await backend.verify_token_proof({
       proof_id: proofId,
       anonymous_reference: anonymousReference
     })

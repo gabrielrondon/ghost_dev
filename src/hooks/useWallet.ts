@@ -1,3 +1,5 @@
+import { walletService } from '@/services/wallet-service'
+
 export interface UseWalletReturn {
   connect: () => Promise<void>
   disconnect: () => Promise<void>
@@ -5,6 +7,7 @@ export interface UseWalletReturn {
   isConnecting: boolean
   error: Error | null
   address: string | null
+  principal: string | null
 }
 
 export function useWallet(): UseWalletReturn {
@@ -15,5 +18,6 @@ export function useWallet(): UseWalletReturn {
     isConnecting: false,
     error: null,
     address: null,
+    principal: walletService.getPrincipal()
   }
 } 

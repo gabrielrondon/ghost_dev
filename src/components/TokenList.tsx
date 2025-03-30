@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useMemo } from 'react'
 import { SearchIcon, CheckCircle2, AlertCircle } from 'lucide-react'
 import { cn } from '@/utils'

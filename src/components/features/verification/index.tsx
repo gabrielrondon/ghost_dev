@@ -1,88 +1,148 @@
 import { useState, useEffect } from 'react'
 import { Shield, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { getVerificationProof } from '@/services/verification'
-import { toast } from 'react-hot-toast'
+import { useToast } from '@/components/ui/use-toast'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 interface VerificationPageProps {
   proofId: string
 }
 
+interface VerificationResult {
+  isVerified: boolean
+  message: string
+  timestamp: string
+  proofType: string
+  itemId: string
+}
+
 export function VerificationPage({ proofId }: VerificationPageProps) {
-  const [proof, setProof] = useState<any>(null)
+  const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
+  const [result, setResult] = useState<VerificationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchProof() {
+    async function verifyProof() {
       try {
-        const proofData = await getVerificationProof(proofId)
-        setProof(proofData)
+        setIsLoading(true)
+        setError(null)
+        const result = await getVerificationProof(proofId)
+        setResult(result)
+        
+        if (result.isVerified) {
+          toast({
+            title: 'Verification Successful',
+            description: 'The proof has been verified successfully.',
+          })
+        } else {
+          toast({
+            title: 'Verification Failed',
+            description: result.message || 'The proof could not be verified.',
+            variant: 'destructive',
+          })
+        }
       } catch (error) {
-        console.error('Failed to fetch proof:', error)
-        setError('Failed to load verification proof')
-        toast.error('Failed to load verification proof')
+        console.error('Failed to verify proof:', error)
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        setError(message)
+        toast({
+          title: 'Verification Error',
+          description: message,
+          variant: 'destructive',
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchProof()
+    if (proofId) verifyProof()
   }, [proofId])
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="flex items-center gap-2">
-          <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
-          <span className="text-gray-300">Loading verification proof...</span>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Verifying Proof</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-red-400 mb-2">Verification Failed</h1>
-          <p className="text-gray-400">{error}</p>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Verification Error</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center p-8 space-y-4">
+            <XCircle className="h-12 w-12 text-destructive" />
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <Button
+              variant="outline"
+              onClick={() => window.location.reload()}
+            >
+              Try Again
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!result) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>No Result Found</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center p-8 space-y-4">
+            <Shield className="h-12 w-12 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">No verification result found for this proof.</p>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="bg-gray-800 shadow-md rounded-lg p-8 border border-gray-700 max-w-2xl w-full">
-        <div className="flex items-center gap-3 mb-8">
-          <Shield className="w-8 h-8 text-purple-400" />
-          <h1 className="text-2xl font-bold">Verification Result</h1>
-        </div>
-
-        <div className="bg-green-500/10 border border-green-500/20 rounded-md p-4 mb-6">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-green-400" />
-            <p className="text-green-400">Proof verified successfully</p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Verification Result</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col items-center justify-center p-8 space-y-6">
+          {result.isVerified ? (
+            <CheckCircle2 className="h-12 w-12 text-green-500" />
+          ) : (
+            <XCircle className="h-12 w-12 text-destructive" />
+          )}
+          <div className="text-center space-y-2">
+            <p className="text-lg font-medium">
+              {result.isVerified ? 'Proof Verified' : 'Verification Failed'}
+            </p>
+            <p className="text-sm text-muted-foreground">{result.message}</p>
+          </div>
+          <div className="w-full max-w-sm space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <p className="text-muted-foreground">Proof Type:</p>
+              <p className="font-medium">{result.proofType}</p>
+              <p className="text-muted-foreground">Item ID:</p>
+              <p className="font-medium truncate">{result.itemId}</p>
+              <p className="text-muted-foreground">Timestamp:</p>
+              <p className="font-medium">{new Date(result.timestamp).toLocaleString()}</p>
+            </div>
           </div>
         </div>
-
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-sm text-gray-400 mb-1">Proof ID</h2>
-            <p className="font-mono text-gray-300">{proofId}</p>
-          </div>
-
-          <div>
-            <h2 className="text-sm text-gray-400 mb-1">Verification Details</h2>
-            <pre className="bg-gray-700 p-4 rounded-md overflow-auto">
-              <code className="text-gray-300">
-                {JSON.stringify(proof, null, 2)}
-              </code>
-            </pre>
-          </div>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 } 

@@ -10,7 +10,8 @@ export { idlFactory } from "./zk_canister.did.js";
  * beginning in dfx 0.15.0
  */
 export const canisterId =
-  process.env.CANISTER_ID_ZK_CANISTER;
+  process.env.CANISTER_ID_ZK_CANISTER ||
+  process.env.ZK_CANISTER_CANISTER_ID;
 
 export const createActor = (canisterId, options = {}) => {
   const agent = options.agent || new HttpAgent({ ...options.agentOptions });
@@ -39,4 +40,4 @@ export const createActor = (canisterId, options = {}) => {
   });
 };
 
-export const zk_canister = canisterId ? createActor(canisterId) : undefined;
+export const zk_canister = createActor(canisterId);

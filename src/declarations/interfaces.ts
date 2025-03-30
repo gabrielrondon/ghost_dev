@@ -1,40 +1,60 @@
-import type { Principal } from '@dfinity/principal'
+import { Principal } from '@dfinity/principal'
+import { HttpAgent } from '@dfinity/agent'
+
+export interface TokenBalance {
+  amount: number
+  canisterId: string | null
+  decimals: number
+  image: string
+  name: string
+  symbol: string
+}
+
+export interface PlugProvider {
+  requestConnect: (options: {
+    whitelist: string[]
+    host?: string
+  }) => Promise<boolean>
+  getPrincipal: () => Promise<Principal>
+  requestBalance: () => Promise<TokenBalance[]>
+  createActor: <T>(options: {
+    canisterId: string
+    interfaceFactory: any
+  }) => Promise<T>
+  isConnected: () => Promise<boolean>
+  disconnect: () => Promise<void>
+  agent?: HttpAgent
+}
+
+export interface ProofInput {
+  token_merkle_path: bigint[]
+  minimum_balance: bigint
+  token_id: bigint
+  collection_id: bigint
+  wallet_principal: bigint
+  token_canister_id: bigint
+  merkle_root: bigint
+  nft_merkle_indices: number[]
+  actual_balance: bigint
+  token_merkle_indices: number[]
+}
+
+export interface ProofResult {
+  proof: Uint8Array
+  publicInputs: Uint8Array
+}
 
 export interface NFTCanister {
-  ownerOf: (tokenIndex: number) => Promise<{ ok: Principal } | { err: string }>
-  tokenMetadata: (tokenIndex: number) => Promise<{
+  ownerOf: (tokenId: bigint) => Promise<Principal>
+  tokenMetadata: (tokenId: bigint) => Promise<{
     name: string
-    image?: string
-    description?: string
-    attributes?: Array<{
-      trait_type: string
-      value: string
-    }>
+    url: string
   }>
 }
 
 export interface ZKCanister {
-  generateProof: (input: {
-    nft_merkle_path: bigint[]
-    minimum_balance: bigint
-    token_id: bigint
-    collection_id: bigint
-    wallet_principal: bigint
-    token_canister_id: bigint
-    merkle_root: bigint
-    nft_merkle_indices: number[]
-    token_merkle_path: bigint[]
-    actual_balance: bigint
-    token_merkle_indices: number[]
-  }) => Promise<
-    | { ok: { proof: Uint8Array; publicInputs: Uint8Array } }
-    | { err: string }
-  >
-  
-  verifyProof: (
-    proof: Uint8Array,
-    publicInputs: Uint8Array
-  ) => Promise<{ ok: boolean } | { err: string }>
+  generateProof: (input: ProofInput) => Promise<{ ok: ProofResult } | { err: string }>
+  verifyProof: (proof: Uint8Array, publicInputs: Uint8Array) => Promise<{ ok: boolean } | { err: string }>
 }
 
 export const nftCanisterInterface = ({ IDL }: { IDL: any }) => {

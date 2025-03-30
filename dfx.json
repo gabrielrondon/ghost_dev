@@ -1,15 +1,22 @@
 {
   "version": 1,
+  "dfx": "0.14.1",
   "canisters": {
     "zk_canister": {
-      "main": "src/declarations/zk_canister/zk_canister.mo",
-      "type": "motoko",
-      "dependencies": []
+      "type": "rust",
+      "package": "zk_canister",
+      "candid": "src/zk_canister/zk_canister.did"
     },
     "main_canister": {
-      "main": "src/declarations/main_canister/main.mo",
-      "type": "motoko",
-      "dependencies": ["zk_canister"]
+      "type": "rust",
+      "package": "main_canister",
+      "candid": "src/main_canister/main_canister.did"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
     }
   },
   "networks": {
@@ -18,9 +25,16 @@
       "type": "ephemeral"
     },
     "ic": {
-      "providers": [
-        "https://ic0.app"
-      ]
+      "providers": ["https://ic0.app"],
+      "type": "persistent"
     }
-  }
+  },
+  "package_set": [
+    {
+      "name": "base",
+      "repo": "https://github.com/dfinity/motoko-base",
+      "version": "moc-0.9.1",
+      "dependencies": []
+    }
+  ]
 }

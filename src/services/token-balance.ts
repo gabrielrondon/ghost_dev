@@ -4,6 +4,7 @@ import { TokenBalance } from '@/utils/merkle-tree'
 import { Actor, HttpAgent } from '@dfinity/agent'
 import { IDL } from '@dfinity/candid'
 import type { InterfaceFactory } from '@dfinity/candid/lib/cjs/idl'
+import type { TokenMetadata, TokenOwnershipInput, TokenOwnershipProof, TokenStandard } from '@/types/token'
 
 // Token standard interfaces
 interface ICRC1 {
@@ -22,17 +23,6 @@ interface EXT {
   balance: (args: { user: Principal; token: string }) => Promise<{ ok: bigint } | { err: any }>
 }
 
-// Token metadata interface
-export interface TokenMetadata {
-  canisterId: Principal
-  standard: 'ICP' | 'ICRC1' | 'ICRC2' | 'DIP20' | 'EXT'
-  name: string
-  symbol: string
-  decimals: number
-  totalSupply?: bigint
-  fee?: bigint
-}
-
 // Cache interface
 interface BalanceCache {
   balance: bigint
@@ -42,6 +32,19 @@ interface BalanceCache {
 // Cache balances for 30 seconds
 const CACHE_DURATION = 30 * 1000
 const balanceCache = new Map<string, BalanceCache>()
+
+// Default supported tokens
+const DEFAULT_TOKENS: TokenMetadata[] = [
+  {
+    canister_id: Principal.fromText('ryjl3-tyaaa-aaaaa-aaaba-cai'),
+    name: 'Internet Computer Protocol',
+    symbol: 'ICP',
+    decimals: 8,
+    total_supply: BigInt('0'),
+    token_standard: 'ICRC1'
+  }
+  // Add more default tokens here
+]
 
 export class TokenBalanceService {
   private agent: HttpAgent
@@ -179,65 +182,106 @@ export class TokenBalanceService {
     return result.ok
   }
 
-  async getBalance(metadata: TokenMetadata, owner: Principal, tokenId?: string): Promise<bigint> {
+  async getBalance(metadata: TokenMetadata, owner: Principal): Promise<bigint> {
     try {
-      switch (metadata.standard) {
-        case 'ICP':
-          return await this.getICPBalance(owner)
+      switch (metadata.token_standard) {
         case 'ICRC1':
-          return await this.getICRC1Balance(metadata.canisterId, owner)
+          return await this.getICRC1Balance(metadata.canister_id, owner)
         case 'ICRC2':
-          return await this.getICRC2Balance(metadata.canisterId, owner)
+          return await this.getICRC2Balance(metadata.canister_id, owner)
         case 'DIP20':
-          return await this.getDIP20Balance(metadata.canisterId, owner)
+          return await this.getDIP20Balance(metadata.canister_id, owner)
         case 'EXT':
-          if (!tokenId) throw new Error('Token ID required for EXT tokens')
-          return await this.getEXTBalance(metadata.canisterId, owner, tokenId)
+          // For EXT tokens, we need a token ID
+          throw new Error('EXT tokens require a token ID')
         default:
-          throw new Error(`Unsupported token standard: ${metadata.standard}`)
+          throw new Error(`Unsupported token standard: ${metadata.token_standard}`)
       }
     } catch (error) {
-      console.error(`Failed to fetch balance for ${metadata.symbol}:`, error)
+      console.error('Failed to fetch balance:', error)
       throw error
     }
   }
 
+  async fetchTokens(_owner: Principal): Promise<TokenMetadata[]> {
+    // For now, just return default tokens
+    return DEFAULT_TOKENS
+  }
+
   async getAllBalances(owner: Principal): Promise<TokenBalance[]> {
-    // This would be populated from a token registry or configuration
-    const supportedTokens: TokenMetadata[] = [
-      {
-        canisterId: Principal.fromText('ryjl3-tyaaa-aaaaa-aaaba-cai'),
-        standard: 'ICP',
-        name: 'Internet Computer Protocol',
-        symbol: 'ICP',
-        decimals: 8
-      }
-      // Add other supported tokens here
-    ]
-
-    const balances: TokenBalance[] = []
-    
-    for (const token of supportedTokens) {
-      try {
-        const balance = await this.getBalance(token, owner)
-        const ownerHash = sha256(owner.toUint8Array())
-        
-        balances.push({
-          tokenId: BigInt(token.canisterId.toText()),
-          balance,
-          ownerHash,
-          metadata: new TextEncoder().encode(JSON.stringify({
-            standard: token.standard,
-            symbol: token.symbol,
-            decimals: token.decimals
-          }))
-        })
-      } catch (error) {
-        console.error(`Failed to fetch balance for ${token.symbol}:`, error)
-        // Continue with other tokens even if one fails
-      }
-    }
-
+    const tokens = await this.fetchTokens(owner)
+    const balances = await Promise.all(
+      tokens.map(async (token) => {
+        try {
+          const balance = await this.getBalance(token, owner)
+          const ownerHash = sha256(owner.toUint8Array())
+          
+          return {
+            tokenId: BigInt(token.canister_id.toText()),
+            balance,
+            ownerHash,
+            metadata: new TextEncoder().encode(JSON.stringify({
+              token_standard: token.token_standard,
+              symbol: token.symbol,
+              decimals: token.decimals
+            }))
+          }
+        } catch (error) {
+          console.error(`Failed to fetch balance for ${token.symbol}:`, error)
+          return {
+            tokenId: BigInt(token.canister_id.toText()),
+            balance: BigInt(0),
+            ownerHash: sha256(owner.toUint8Array()),
+            metadata: new TextEncoder().encode(JSON.stringify({
+              token_standard: token.token_standard,
+              symbol: token.symbol,
+              decimals: token.decimals
+            }))
+          }
+        }
+      })
+    )
     return balances
   }
-} 
+
+  async generateProof(input: TokenOwnershipInput): Promise<TokenOwnershipProof> {
+    const { token_canister_id, owner, amount, token_standard } = input
+    const balance = await this.getBalance(
+      {
+        canister_id: token_canister_id,
+        name: 'Unknown',
+        symbol: 'Unknown',
+        decimals: 8,
+        total_supply: BigInt(0),
+        token_standard
+      },
+      owner
+    )
+
+    if (balance < amount) {
+      throw new Error('Insufficient balance')
+    }
+
+    // Generate proof using SHA-256
+    const message = `${token_canister_id.toText()}-${owner.toText()}-${amount.toString()}-${token_standard}`
+    const proof = Buffer.from(sha256(message)).toString('hex')
+    const root = Buffer.from(sha256(proof)).toString('hex')
+    const timestamp = new Date().toISOString()
+
+    return {
+      ...input,
+      proof,
+      root,
+      timestamp,
+      public_inputs: {
+        token_canister_id: token_canister_id.toText(),
+        owner: owner.toText(),
+        amount: amount.toString(),
+        token_standard
+      }
+    }
+  }
+}
+
+// Create and export a singleton instance
+export const tokenService = new TokenBalanceService(new HttpAgent()) 

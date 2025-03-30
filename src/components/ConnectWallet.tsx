@@ -1,19 +1,26 @@
+import { Button } from '@/components/ui/button'
 import { useWallet } from '@/hooks/use-wallet'
-import { Button } from './ui/button'
-import { Wallet } from 'lucide-react'
+import { WalletType } from '@/components/WalletSelector'
 
-export function ConnectWallet() {
+interface ConnectWalletProps {
+  walletType: WalletType
+}
+
+export function ConnectWallet({ walletType }: ConnectWalletProps) {
   const { connect, isConnecting } = useWallet()
+
+  const handleClick = () => {
+    connect(walletType)
+  }
 
   return (
     <Button
-      onClick={connect}
+      onClick={handleClick}
       disabled={isConnecting}
       size="lg"
       className="gap-2"
     >
-      <Wallet className="h-5 w-5" />
-      {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+      Connect {walletType}
     </Button>
   )
 } 

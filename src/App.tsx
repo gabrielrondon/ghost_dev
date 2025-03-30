@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/header';
-import ProofGenerator from '@/components/features/proof-generator';
+import { ProofGenerator } from '@/components/features/proof-generator';
 import { VerificationPage } from '@/components/features/verification';
 import { Providers } from '@/app/providers';
 import { WalletStatus } from './components/WalletStatus';

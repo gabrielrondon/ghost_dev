@@ -1,65 +1,20 @@
-import { useState, useCallback } from 'react'
-import { AuthClient } from '@dfinity/auth-client'
+import { useContext } from 'react'
+import { createContext } from 'react'
+import { WalletType } from '@/components/WalletSelector'
 
-interface UseWalletReturn {
-  isConnected: boolean
-  isConnecting: boolean
+interface WalletContextType {
   principal: string | null
-  connect: () => Promise<void>
-  disconnect: () => Promise<void>
+  isConnecting: boolean
+  isConnected: boolean
+  error: Error | null
+  connect: (walletType: WalletType) => Promise<void>
+  disconnect: () => void
 }
 
-export function useWallet(): UseWalletReturn {
-  const [isConnected, setIsConnected] = useState(false)
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [principal, setPrincipal] = useState<string | null>(null)
+export const WalletContext = createContext<WalletContextType | null>(null)
 
-  const connect = useCallback(async () => {
-    try {
-      setIsConnecting(true)
-      const authClient = await AuthClient.create()
-      const isAuthenticated = await authClient.isAuthenticated()
-
-      if (!isAuthenticated) {
-        await new Promise<void>((resolve, reject) => {
-          authClient.login({
-            identityProvider: process.env.II_URL,
-            onSuccess: () => resolve(),
-            onError: reject
-          })
-        })
-      }
-
-      const identity = authClient.getIdentity()
-      const principal = identity.getPrincipal().toString()
-      
-      setPrincipal(principal)
-      setIsConnected(true)
-    } catch (error) {
-      console.error('Failed to connect wallet:', error)
-      throw error
-    } finally {
-      setIsConnecting(false)
-    }
-  }, [])
-
-  const disconnect = useCallback(async () => {
-    try {
-      const authClient = await AuthClient.create()
-      await authClient.logout()
-      setPrincipal(null)
-      setIsConnected(false)
-    } catch (error) {
-      console.error('Failed to disconnect wallet:', error)
-      throw error
-    }
-  }, [])
-
-  return {
-    isConnected,
-    isConnecting,
-    principal,
-    connect,
-    disconnect
-  }
+export function useWallet() {
+  const context = useContext(WalletContext)
+  if (!context) throw new Error('useWallet must be used within a WalletProvider')
+  return context
 } 

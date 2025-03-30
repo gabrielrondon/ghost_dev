@@ -19,11 +19,11 @@
       }
     ],
     "paths": {
-      "@/*": ["./app/*"],
-      "@/declarations/*": ["./app/declarations/*"],
-      "@/components/*": ["./app/components/*"],
-      "@/services/*": ["./app/services/*"],
-      "@/types/*": ["./app/types/*"]
+      "@/*": ["./src/*"],
+      "@/declarations/*": ["./src/declarations/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/services/*": ["./src/services/*"],
+      "@/types/*": ["./src/types/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

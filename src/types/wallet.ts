@@ -41,6 +41,7 @@ export interface ICPTransaction {
   amount: string
   timestamp: number
   status: 'pending' | 'completed' | 'failed'
+  type: 'send' | 'receive' | 'swap' | 'mint' | 'burn'
 }
 
 export type ICPTransactionType = ICPTransaction['type'] 

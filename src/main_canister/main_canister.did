@@ -1,0 +1,14 @@
+type ProofRequest = record {
+    token_id : text;
+    owner : text;
+};
+
+type ProofResponse = record {
+    reference : text;
+    proof : vec nat8;
+};
+
+service : {
+    "request_proof" : (ProofRequest) -> (ProofResponse);
+    "get_proof_status" : (text) -> (text) query;
+} 

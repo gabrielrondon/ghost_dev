@@ -1,33 +1,13 @@
-import { Identity } from "@dfinity/agent"
-import { Principal } from "@dfinity/principal"
-import { canisterService } from "./canister-service"
+import { Identity } from '@dfinity/agent'
+import { Principal } from '@dfinity/principal'
+import { canisterService } from './canister-service'
+import type { PlugProvider, StoicIdentity } from '../../src/types/plug'
 
 interface WalletState {
-  principal: Principal | null
+  principal: string | null
   identity: Identity | null
-  provider: "stoic" | "plug" | null
-}
-
-declare global {
-  interface Window {
-    ic?: {
-      plug?: {
-        agent?: {
-          getPrincipal: () => Promise<Principal>
-          getIdentity: () => Promise<Identity>
-        }
-        requestConnect: (options: {
-          whitelist: string[]
-          host?: string
-        }) => Promise<boolean>
-      }
-    }
-  }
-}
-
-interface StoicIdentity {
-  connect(): Promise<Identity>
-  load(): Promise<Identity | undefined>
+  provider: 'stoic' | 'plug' | null
+  isConnected: boolean
 }
 
 class WalletService {
@@ -35,80 +15,74 @@ class WalletService {
     principal: null,
     identity: null,
     provider: null,
+    isConnected: false
   }
 
-  async connectStoic(): Promise<void> {
-    if (!process.env.NEXT_PUBLIC_ENABLE_STOIC) {
-      throw new Error("Stoic wallet is not enabled")
-    }
-
+  async connectStoic() {
     try {
-      const StoicIdentity = (await import("ic-stoic-identity")).default as unknown as StoicIdentity
-      const identity = await StoicIdentity.load()
-      if (!identity) {
-        const identity = await StoicIdentity.connect()
-        this.setState({
-          principal: identity.getPrincipal(),
-          identity,
-          provider: "stoic",
-        })
-      }
-    } catch (error) {
-      console.error("Failed to connect to Stoic wallet:", error)
-      throw new Error("Failed to connect to Stoic wallet")
-    }
-  }
+      if (!window.StoicIdentity) throw new Error('Stoic wallet is not installed')
 
-  async connectPlug(): Promise<void> {
-    if (!process.env.NEXT_PUBLIC_ENABLE_PLUG) {
-      throw new Error("Plug wallet is not enabled")
-    }
+      const identity = await window.StoicIdentity.connect()
+      if (!identity) throw new Error('Failed to connect to Stoic wallet')
 
-    if (!window.ic?.plug) {
-      throw new Error("Plug wallet not installed")
-    }
-
-    try {
-      const result = await window.ic.plug.requestConnect({
-        whitelist: [
-          process.env.NEXT_PUBLIC_MAIN_CANISTER_ID!,
-          process.env.NEXT_PUBLIC_ZK_CANISTER_ID!,
-        ],
-        host: process.env.NEXT_PUBLIC_IC_HOST,
-      })
-
-      if (!result) {
-        throw new Error("User rejected the connection request")
-      }
-
-      if (!window.ic.plug.agent) {
-        throw new Error("Plug agent not initialized")
-      }
-
-      const principal = await window.ic.plug.agent.getPrincipal()
-      const identity = await window.ic.plug.agent.getIdentity()
+      const principal = identity.getPrincipal().toString()
 
       this.setState({
         principal,
         identity,
-        provider: "plug",
+        provider: 'stoic',
+        isConnected: true
       })
+
+      await canisterService.initializeActors(identity)
     } catch (error) {
-      console.error("Failed to connect to Plug wallet:", error)
-      throw new Error("Failed to connect to Plug wallet")
+      throw new Error('Failed to connect to Stoic wallet')
     }
   }
 
-  async disconnect(): Promise<void> {
+  async connectPlug() {
+    try {
+      const plug = window?.ic?.plug as PlugProvider | undefined
+      if (!plug) throw new Error('Plug wallet is not installed')
+
+      const whitelist = [process.env.NEXT_PUBLIC_CANISTER_ID_MAIN || '']
+      const host = process.env.NEXT_PUBLIC_IC_HOST
+      const connected = await plug.requestConnect({ whitelist, host })
+
+      if (!connected) throw new Error('Failed to connect to Plug wallet')
+
+      const isConnected = await plug.isConnected()
+      if (!isConnected) throw new Error('Failed to verify Plug wallet connection')
+
+      const principal = await plug.getPrincipal()
+      
+      this.setState({
+        principal: principal.toString(),
+        identity: null, // Plug wallet doesn't provide direct access to the identity
+        provider: 'plug',
+        isConnected: true
+      })
+    } catch (error) {
+      throw new Error('Failed to connect to Plug wallet')
+    }
+  }
+
+  async disconnect() {
+    const plug = window?.ic?.plug as PlugProvider | undefined
+    if (this.state.provider === 'plug' && plug) {
+      await plug.disconnect()
+    }
+
     this.setState({
       principal: null,
       identity: null,
       provider: null,
+      isConnected: false
     })
-    canisterService.resetActors()
+    await canisterService.resetActors()
   }
 
-  private setState(state: Partial<WalletState>): void {
+  setState(state: Partial<WalletState>) {
     this.state = { ...this.state, ...state }
   }
 
@@ -116,7 +90,7 @@ class WalletService {
     return this.state
   }
 
-  getPrincipal(): Principal | null {
+  getPrincipal(): string | null {
     return this.state.principal
   }
 
@@ -126,3 +100,4 @@ class WalletService {
 }
 
 export const walletService = new WalletService() 
+

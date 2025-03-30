@@ -1,4 +1,4 @@
-import { IDL } from '@dfinity/candid';
+import { type IDL } from '@dfinity/candid';
 import { Actor, HttpAgent } from '@dfinity/agent';
 import { Principal } from '@dfinity/principal';
 import { ICP_LEDGER_CANISTER_ID } from '@/constants';
@@ -6,19 +6,19 @@ import { getConnectionProtocol } from '@/utils/network';
 import { principalToAccountIdentifier } from './utils';
 import type { ICPToken } from '@/types/wallet';
 
-// Create a minimal interface for the ledger canister
-interface LedgerCanister {
+// Define the service interface
+export interface LedgerCanister {
   account_balance: (args: { account: Array<number> }) => Promise<{ e8s: bigint }>;
   list_tokens: (args: { account: Array<number> }) => Promise<Array<{ token_id: string, balance: bigint }>>;
 }
 
-// Create the IDL factory for the ledger canister
-const ledgerIdlFactory = ({ IDL }: { IDL: typeof IDL }) => {
+// Create and export the IDL factory for the ledger canister
+export const ledgerIdlFactory: IDL.InterfaceFactory = ({ IDL }) => {
   const AccountIdentifier = IDL.Vec(IDL.Nat8);
-  const Tokens = IDL.Record({ 'e8s' : IDL.Nat64 });
+  const Tokens = IDL.Record({ 'e8s': IDL.Nat64 });
   return IDL.Service({
-    'account_balance' : IDL.Func([IDL.Record({ 'account' : AccountIdentifier })], [Tokens], ['query']),
-    'list_tokens' : IDL.Func([IDL.Record({ 'account' : AccountIdentifier })], [IDL.Vec(IDL.Record({ token_id: IDL.Text, balance: IDL.Nat64 }))], ['query']),
+    'account_balance': IDL.Func([IDL.Record({ 'account': AccountIdentifier })], [Tokens], ['query']),
+    'list_tokens': IDL.Func([IDL.Record({ 'account': AccountIdentifier })], [IDL.Vec(IDL.Record({ token_id: IDL.Text, balance: IDL.Nat64 }))], ['query']),
   });
 };
 

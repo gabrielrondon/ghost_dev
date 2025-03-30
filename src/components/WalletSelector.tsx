@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { useWallet } from '@/components/WalletContext';
+import { useWallet } from '@/hooks/use-wallet';
 
 // SVG icons for wallets
 const StoicIcon = () => (
@@ -35,22 +35,22 @@ interface WalletOption {
 }
 
 // Read environment variables to determine wallet availability
-const isStoicEnabled = import.meta.env.VITE_ENABLE_STOIC === 'true';
-const isPlugEnabled = import.meta.env.VITE_ENABLE_PLUG === 'true';
+const isStoicEnabled = process.env.NEXT_PUBLIC_ENABLE_STOIC === 'true';
+const isPlugEnabled = process.env.NEXT_PUBLIC_ENABLE_PLUG === 'true';
 
 const walletOptions: WalletOption[] = [
   {
-    id: 'stoic' as WalletType,
+    id: 'stoic',
     name: 'Stoic Wallet',
     icon: <StoicIcon />,
     available: isStoicEnabled,
     comingSoon: false
   },
   {
-    id: 'plug' as WalletType,
+    id: 'plug',
     name: 'Plug Wallet',
     icon: <PlugIcon />,
-    available: true,
+    available: isPlugEnabled || true, // Default to true if not specified
     comingSoon: false
   }
 ];

@@ -14,7 +14,7 @@ Definition of Done: A unique, shareable proof link that third parties can use to
 - Test execution with an initial use case (ONE use case)
 Definition of Done: Successful end-to-end testing of a complete proof request, generation, and verification cycle. A test script and a demo video will be available.
 
-
+we decided the use case to be prove the user has a specific token and with a certain amount. not nfts, token (fungibles).
 ## Overview
 This milestone implements a canister-based Zero-Knowledge Proof (ZKP) system for private attestations, focusing on token ownership verification. The system allows users to prove they own an token without revealing their identity.
 
