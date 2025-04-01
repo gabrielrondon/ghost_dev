@@ -1,9 +1,0 @@
-type VerificationResult = record {
-    is_valid : bool;
-    message : text;
-};
-
-service : {
-    "generate_proof" : (vec nat8) -> (vec nat8);
-    "verify_proof" : (vec nat8) -> (VerificationResult) query;
-} 

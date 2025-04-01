@@ -1,0 +1,34 @@
+type TokenStandard = variant {
+    ERC20;
+    ERC721;
+    ERC1155;
+    ICRC1;
+    ICRC2;
+    ICP;
+};
+
+type TokenMetadata = record {
+    canister_id: text;
+    token_standard: TokenStandard;
+    decimals: opt nat8;
+};
+
+type TokenOwnershipInput = record {
+    token_metadata: TokenMetadata;
+    token_id: vec nat8;
+    balance: vec nat8;
+    owner_hash: vec nat8;
+    merkle_path: vec vec nat8;
+    path_indices: vec nat8;
+    token_specific_data: opt vec nat8;
+};
+
+type Result = variant {
+    Ok: bool;
+    Err: text;
+};
+
+service : {
+    prove_ownership: (text, TokenOwnershipInput) -> (variant { Ok: vec nat8; Err: text }) update;
+    verify_proof: (vec nat8) -> (Result) query;
+} 

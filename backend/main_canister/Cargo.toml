@@ -1,0 +1,24 @@
+[package]
+name = "main_canister"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ic-cdk.workspace = true
+ic-cdk-macros.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+candid.workspace = true
+uuid.workspace = true
+getrandom.workspace = true
+ark-groth16.workspace = true
+ark-std.workspace = true
+ark-crypto-primitives.workspace = true
+ic-stable-structures.workspace = true
+blake2.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true 

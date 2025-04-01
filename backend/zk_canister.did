@@ -1,0 +1,16 @@
+service : {
+  "prove_ownership": (vec nat8, record {
+    token_metadata: record {
+      canister_id: principal;
+      token_standard: text;
+      decimals: nat8;
+    };
+    token_id: text;
+    balance: nat;
+    owner_hash: vec nat8;
+    merkle_path: vec vec nat8;
+    path_indices: vec bool;
+    token_specific_data: opt vec nat8;
+  }) -> (vec nat8);
+  "verify_proof": (vec nat8) -> (bool) query;
+} 

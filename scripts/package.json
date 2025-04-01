@@ -1,0 +1,19 @@
+{
+  "name": "ghost-dev-tests",
+  "version": "1.0.0",
+  "description": "Test scripts for the Ghost Dev project",
+  "scripts": {
+    "test": "ts-node test_zk_canister.ts"
+  },
+  "dependencies": {
+    "@dfinity/agent": "^0.19.3",
+    "@dfinity/candid": "^0.19.3",
+    "@dfinity/principal": "^0.19.3",
+    "node-fetch": "^3.3.2",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.1.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.2"
+  }
+}

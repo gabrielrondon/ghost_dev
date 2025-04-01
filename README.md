@@ -1,73 +1,105 @@
-# Ghost Protocol
+# Ghost - ZK Notary Agent Backend
 
-A Zero-Knowledge Proof (ZKP) system for private attestations on the Internet Computer.
+A Zero-Knowledge Proof system for private attestations on the Internet Computer.
 
-## Overview
-Ghost Protocol enables users to prove ownership of assets (NFTs, tokens) without revealing their identity. The system uses zero-knowledge proofs to create verifiable, anonymous attestations.
+## Repository Organization
 
-## Features
-- Connect Internet Computer wallets (Plug)
-- Verify NFT ownership
-- Generate zero-knowledge proofs
-- Create anonymous attestation references
-- Verify proofs through anonymous links
+This repository contains the **backend canister components** of the Ghost ZK proof system. 
+
+**The frontend application is available in a separate repository:**
+[https://github.com/gabrielrondon/ghost-frontend](https://github.com/gabrielrondon/ghost-frontend)
+
+## Canister Structure
+
+This repository contains the following canisters:
+
+1. **ZK Canister** (`hi7bu-myaaa-aaaad-aaloa-cai`)
+   - Handles zero-knowledge proof generation and verification
+   - Provides cryptographic attestations without revealing sensitive data
+   - Deployed on the Internet Computer mainnet
+
+2. **Main Canister** (Planned for Milestone 2)
+   - Will handle user management and additional functionality
+   - Currently in development
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- DFX 0.14.1+
-- Internet Computer Plug Wallet
 
-### Installation
-1. Clone the repository:
-```bash
-git clone https://github.com/your-username/ghost-protocol.git
-cd ghost-protocol
-```
+- [DFX SDK](https://internetcomputer.org/docs/current/developer-docs/build/install-dfx) (v0.15.0 or later)
+- Rust (latest stable version)
+- [ic-wasm](https://github.com/dfinity/ic-wasm) for WebAssembly optimization
 
-2. Install dependencies:
+### Building the Canisters
+
 ```bash
+# Clone this repository
+git clone <repository-url>
+cd ghost-backend
+
+# Install dependencies
 npm install
-```
 
-3. Configure environment:
-```bash
-cp .env.example .env.local
-```
+# Build the canisters
+dfx build
 
-4. Start local development:
-```bash
-dfx start --clean --background
+# Deploy locally for testing
+dfx start --background
 dfx deploy
-npm run dev
 ```
 
-## Documentation
-- [Milestone 1: Core Proof System](docs/milestone1.md)
+## Canister Interface
 
-## Testing
-Run the automated test suite:
-```bash
-./scripts/run_milestone1_test.sh
+The ZK canister provides the following methods:
+
+```candid
+type TokenStandard = variant {
+    ERC20;
+    ERC721;
+    ERC1155;
+    ICRC1;
+    ICRC2;
+    ICP;
+};
+
+type TokenMetadata = record {
+    canister_id: text;
+    token_standard: TokenStandard;
+    decimals: opt nat8;
+};
+
+type TokenOwnershipInput = record {
+    token_metadata: TokenMetadata;
+    token_id: vec nat8;
+    balance: vec nat8;
+    owner_hash: vec nat8;
+    merkle_path: vec vec nat8;
+    path_indices: vec nat8;
+    token_specific_data: opt vec nat8;
+};
+
+type Result = variant {
+    Ok: bool;
+    Err: text;
+};
+
+service : {
+    prove_ownership: (text, TokenOwnershipInput) -> (variant { Ok: vec nat8; Err: text }) update;
+    verify_proof: (vec nat8) -> (Result) query;
+}
 ```
 
-## Deployment
-Deploy to the Internet Computer mainnet:
-```bash
-dfx build --network ic
-dfx deploy --network ic
-```
+## Developer Documentation
 
-## Contributing
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+For detailed development information, please refer to the following documents:
+
+- [Backend Documentation](./docs/backend.md)
+- [Deployment Guide](./DEPLOYMENT.md)
+- [Milestone 1 Documentation](./docs/milestone1.md)
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 - Internet Computer Foundation
