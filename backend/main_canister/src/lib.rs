@@ -931,3 +931,21 @@ fn store_token_proof(proof_id: String, token_id: String, merkle_root: String, pr
 
     result
 }
+
+#[query]
+fn __get_candid_interface_tmp_hack() -> String {
+    include_str!("../main_canister.did").to_string()
+}
+
+// For newer versions of dfx, you may also want to export the Candid interface 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use candid::{export_service, Principal};
+
+    #[test]
+    fn export_candid() {
+        export_service!();
+        std::println!("{}", __export_service());
+    }
+}

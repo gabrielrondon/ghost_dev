@@ -131,3 +131,21 @@ fn verify_proof(proof_bytes: Vec<u8>) -> Result<bool, String> {
 
 // Manually export the interface since export_candid is not available in this version
 // candid::export_service!(); - This would be used in a newer version of ic-cdk 
+
+#[query]
+fn __get_candid_interface_tmp_hack() -> String {
+    include_str!("../zk_canister.did").to_string()
+}
+
+// For newer versions of dfx, you may also want to export the Candid interface
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use candid::{export_service, Principal};
+
+    #[test]
+    fn export_candid() {
+        export_service!();
+        std::println!("{}", __export_service());
+    }
+} 
