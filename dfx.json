@@ -4,13 +4,25 @@
       "candid": "backend/zk_canister/zk_canister.did",
       "package": "zk_canister",
       "type": "rust",
-      "source": ["backend/zk_canister/src"]
+      "source": ["backend/zk_canister/src"],
+      "metadata": [
+        {
+          "name": "candid:service",
+          "path": "backend/zk_canister/zk_canister.did"
+        }
+      ]
     },
     "main_canister": {
       "candid": "backend/main_canister/main_canister.did",
       "package": "main_canister",
       "type": "rust",
-      "source": ["backend/main_canister/src"]
+      "source": ["backend/main_canister/src"],
+      "metadata": [
+        {
+          "name": "candid:service",
+          "path": "backend/main_canister/main_canister.did"
+        }
+      ]
     }
   },
   "defaults": {
