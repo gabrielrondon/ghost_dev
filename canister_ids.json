@@ -4,5 +4,8 @@
   },
   "zk_canister": {
     "ic": "hi7bu-myaaa-aaaad-aaloa-cai"
+  },
+  "zk_canister_v2": {
+    "ic": "bdwxd-wiaaa-aaaad-aalza-cai"
   }
 }

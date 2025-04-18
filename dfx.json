@@ -23,6 +23,24 @@
           "path": "backend/main_canister/main_canister.did"
         }
       ]
+    },
+    "zk_canister_v2": {
+      "candid": "backend/zk_canister_v2/zk_canister_v2.did",
+      "package": "zk_canister_v2",
+      "type": "rust"
+    },
+    "frontend": {
+      "dependencies": [
+        "zk_canister_v2"
+      ],
+      "frontend": {
+        "entrypoint": "src/index.html"
+      },
+      "source": [
+        "src/",
+        "dist/"
+      ],
+      "type": "assets"
     }
   },
   "defaults": {
@@ -31,6 +49,7 @@
       "packtool": ""
     }
   },
+  "output_env_file": ".env",
   "version": 1,
   "networks": {
     "local": {
