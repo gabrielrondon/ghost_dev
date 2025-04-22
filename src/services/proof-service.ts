@@ -1,91 +1,125 @@
-import { HttpAgent, QueryResponseRejected, QueryResponseReplied, SubmitResponse } from '@dfinity/agent'
+import { HttpAgent, SubmitResponse } from '@dfinity/agent'
 import { Principal } from '@dfinity/principal'
 import { IDL } from '@dfinity/candid'
-import { ZK_CANISTER_ID, IC_HOST } from '../config/canister'
+import { TokenMetadata } from '../types/token'
+import { ZK_CANISTER_ID, IC_HOST } from '../config/canister-config'
 
-// Types from the Candid interface
-export type TokenStandard = { EXT: null } | { DIP20: null } | { ICRC1: null } | { ICRC2: null }
+// Initialize agent
+const agent = new HttpAgent({ host: IC_HOST })
 
-export interface TokenMetadata {
-  name: string
-  symbol: string
-  decimals: number
-  fee: [] | [bigint]
-  standard: TokenStandard
-  total_supply: bigint
-}
-
-export interface TokenOwnershipInput {
-  token_canister: Principal
-  metadata: TokenMetadata
-  owner: Principal
-  spender: [] | [Principal]
+interface ProofGenerationInput {
+  tokenMetadata: TokenMetadata
+  ownerPrincipal: string
   amount: bigint
-  block_height: [] | [bigint]
-  tx_id: [] | [bigint]
+  timestamp: bigint
 }
 
-type ProofGenerationError = { InvalidInput: null } | { BalanceVerificationFailed: null } | { InternalError: null }
-type ProofVerificationError = { InvalidProof: null } | { InternalError: null }
+interface ProofGenerationResult {
+  proofId: string
+  proofBlob: Uint8Array
+}
 
-type ProofGenerationResult = { Ok: Uint8Array } | { Err: ProofGenerationError }
-type ProofVerificationResult = { Ok: boolean } | { Err: ProofVerificationError }
+interface ProofVerificationInput {
+  proofBlob: Uint8Array
+}
 
-// Define IDL types for the canister interface
-const TokenMetadataType = IDL.Record({
-  standard: IDL.Text,
-  decimals: IDL.Nat8,
-  symbol: IDL.Text,
-  fee: IDL.Nat,
-  name: IDL.Text,
-  totalSupply: IDL.Nat
-})
+interface ProofVerificationResult {
+  isValid: boolean
+  error?: string
+}
 
-const TokenOwnershipInputType = IDL.Record({
-  metadata: TokenMetadataType,
-  owner: IDL.Principal,
-  subaccount: IDL.Opt(IDL.Vec(IDL.Nat8)),
-  spender: IDL.Opt(IDL.Principal),
-  value: IDL.Nat,
-  nonce: IDL.Nat
-})
+interface TokenOwnershipInput {
+  balance: bigint
+  index: number
+  proof: number[]
+}
 
-// Service functions
-export async function generateProof({ 
-  metadata,
-  owner,
-  subaccount,
-  spender,
-  value,
-  nonce 
-}: TokenOwnershipInput): Promise<string> {
+interface ProofGenerationInput {
+  principal: Principal
+  tokenMetadata: TokenMetadata
+  ownershipInput: TokenOwnershipInput
+}
+
+const zkCanisterIdl = ({ IDL }: { IDL: any }) => {
+  return IDL.Service({
+    prove_ownership: IDL.Func(
+      [IDL.Text, {
+        principal: IDL.Text,
+        metadata: {
+          standard: IDL.Text,
+          canister: IDL.Text,
+          symbol: IDL.Text,
+          name: IDL.Text,
+          decimals: IDL.Nat8
+        },
+        ownership: {
+          balance: IDL.Nat,
+          index: IDL.Nat32,
+          proof: IDL.Vec(IDL.Nat8)
+        }
+      }],
+      [IDL.Vec(IDL.Nat8)],
+      []
+    ),
+    verify_proof: IDL.Func(
+      [IDL.Vec(IDL.Nat8)],
+      [IDL.Bool],
+      []
+    )
+  })
+}
+
+export async function generateProof({
+  tokenMetadata,
+  ownerPrincipal,
+  amount,
+  timestamp
+}: ProofGenerationInput): Promise<ProofGenerationResult> {
   try {
-    const agent = new HttpAgent({ host: IC_HOST })
-    await agent.fetchRootKey()
-
-    const proofInput = {
-      metadata,
-      owner,
-      subaccount,
-      spender,
-      value,
-      nonce
+    const ownershipInput = {
+      principal: Principal.fromText(ownerPrincipal),
+      token: {
+        standard: tokenMetadata.standard,
+        decimals: tokenMetadata.decimals,
+        symbol: tokenMetadata.symbol,
+        canister: Principal.fromText(tokenMetadata.canisterId)
+      },
+      amount,
+      timestamp
     }
 
+    // Call the ZK canister to generate proof
     const response = await agent.call(
       Principal.fromText(ZK_CANISTER_ID),
       {
         methodName: 'prove_ownership',
-        arg: IDL.encode([TokenOwnershipInputType], [proofInput])
+        arg: IDL.encode([
+          IDL.Text,
+          IDL.Record({
+            principal: IDL.Principal,
+            token: IDL.Record({
+              standard: IDL.Text,
+              decimals: IDL.Nat8,
+              symbol: IDL.Text,
+              canister: IDL.Principal
+            }),
+            amount: IDL.Nat,
+            timestamp: IDL.Nat64
+          })
+        ], ['test', ownershipInput])
       }
-    ) as SubmitResponse
+    ) as unknown as ArrayBuffer
 
-    if (!response.ok) {
-      throw new Error(`Failed to generate proof: ${response.statusText}`)
+    // Process result and return proof data
+    const [proofId, proofBlob] = IDL.decode(
+      [IDL.Text, IDL.Vec(IDL.Nat8)], 
+      response
+    ) as [string, Uint8Array]
+    
+    return {
+      proofId,
+      proofBlob
     }
-
-    const [proofId] = IDL.decode([IDL.Text], response.body) as [string]
-    return proofId
 
   } catch (error) {
     console.error('Error generating proof:', error)
@@ -93,30 +127,29 @@ export async function generateProof({
   }
 }
 
-export async function verifyProof(proofId: string): Promise<boolean> {
+export async function verifyProof({
+  proofBlob
+}: ProofVerificationInput): Promise<ProofVerificationResult> {
   try {
-    const agent = new HttpAgent({ host: IC_HOST })
-    await agent.fetchRootKey()
-
-    const response = await agent.query(
+    // Call the ZK canister to verify proof
+    const response = await agent.call(
       Principal.fromText(ZK_CANISTER_ID),
       {
         methodName: 'verify_proof',
-        arg: IDL.encode([IDL.Text], [proofId])
+        arg: IDL.encode([IDL.Vec(IDL.Nat8)], [proofBlob])
       }
-    )
+    ) as unknown as ArrayBuffer
 
-    if ((response as QueryResponseRejected).reject_message) {
-      console.error('Proof verification rejected:', (response as QueryResponseRejected).reject_message)
-      return false
+    const [isValid] = IDL.decode([IDL.Bool], response) as [boolean]
+
+    return {
+      isValid
     }
-
-    const replied = response as QueryResponseReplied
-    const [isValid] = IDL.decode([IDL.Bool], replied.reply.arg) as [boolean]
-    return isValid
-
   } catch (error) {
     console.error('Error verifying proof:', error)
-    return false
+    return {
+      isValid: false,
+      error: 'Failed to verify proof'
+    }
   }
-} 
+}
