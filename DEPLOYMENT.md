@@ -1,115 +1,145 @@
 # Deployment Guide
 
-This document provides instructions for deploying the ZK Canister and the web application to the Internet Computer.
+This guide details the deployment process for the Ghost ZK Notary Agent system.
 
-## Prerequisites
+## Current Deployment Status
 
-- dfx CLI installed
-- Proper authentication credentials (identity with cycles)
-- Rust toolchain with wasm32-unknown-unknown target
+### ZK Canister
+- **Network**: IC Mainnet
+- **Canister ID**: `hi7bu-myaaa-aaaad-aaloa-cai`
+- **Status**: Running
+- **Controllers**: 
+  - `h5yqz-nqaaa-aaaad-aalnq-cai`
+  - `icfpp-yq3gn-xcebw-wrmqr-qqh7p-zll6t-lieu2-t2v4l-etphp-lyhv7-5ae`
+- **Balance**: ~2.6T cycles
+- **Module Hash**: `0xf44075bc086190df7b13ba7d65cce00232fba93eef8e02c0c0a28a86c77efbdc`
 
-## ZK Canister Deployment
+### Main Canister
+- **Status**: Planned for Milestone 2
+- **Network**: Not yet deployed
 
-The ZK Canister is deployed to the Internet Computer mainnet with the ID `hi7bu-myaaa-aaaad-aaloa-cai`.
+## Deployment Process
 
-### Building the Canister
+### Prerequisites
+1. Install the DFINITY Canister SDK (dfx)
+2. Configure your identity with sufficient cycles
+3. Have Rust and the wasm32-unknown-unknown target installed
 
-To build the ZK Canister for production:
+### Building the Canisters
 
 ```bash
-cd backend/zk_canister
+# Build the Rust canister
 cargo build --target wasm32-unknown-unknown --release
-```
 
-### Deploying the Canister
+# Optimize the Wasm binary
+ic-wasm backend/target/wasm32-unknown-unknown/release/zk_canister.wasm -o backend/target/wasm32-unknown-unknown/release/zk_canister.wasm shrink
 
-To create a new canister (only needed once):
-
-```bash
+# Create the canister
 dfx canister create zk_canister --network ic --no-wallet
-```
 
-To deploy an updated version:
-
-```bash
-dfx canister install zk_canister --wasm backend/target/wasm32-unknown-unknown/release/zk_canister.wasm --network ic --mode upgrade
+# Deploy the canister
+dfx canister install zk_canister --mode=upgrade --wasm backend/target/wasm32-unknown-unknown/release/zk_canister.wasm --network ic
 ```
 
 ### Verifying Deployment
 
-Check the canister status:
+To verify the canister is running correctly:
 
 ```bash
+# Check canister status
 dfx canister status zk_canister --network ic
+
+# Test proof generation
+dfx canister call --network ic zk_canister prove_ownership '(
+  "test",
+  record {
+    token = record {
+      chain_id = 1;
+      token_address = "ryjl3-tyaaa-aaaaa-aaaba-cai";
+      token_standard = variant { ICRC1 };
+      token_id = null;
+    };
+    owner_address = "test";
+    balance = "1000000";
+    block_number = 1;
+  }
+)'
+
+# Test proof verification
+dfx canister call --network ic zk_canister verify_proof '("proof_id")'
 ```
 
-## Web Application Configuration
+## Frontend Deployment
 
-The frontend application automatically detects the environment (development or production) and uses the appropriate canister IDs and hosts.
+The frontend is built using Vite and can be deployed to any static hosting service. For local development:
 
-### Environment Configuration
+```bash
+# Install dependencies
+npm install
 
-All canister configuration is centralized in `src/config/canister-config.ts`:
+# Start development server
+npm run dev
 
-```typescript
-// Environment detection
-const isDevelopment = process.env.NODE_ENV === 'development';
-
-// Canister IDs
-export const ZK_CANISTER_ID = isDevelopment 
-  ? 'bkyz2-fmaaa-aaaaa-qaaaq-cai'  // Local development canister
-  : 'hi7bu-myaaa-aaaad-aaloa-cai'  // Production canister
-
-// IC Hosts
-export const IC_HOST = isDevelopment
-  ? 'http://127.0.0.1:8000'  // Local development host
-  : 'https://ic0.app'        // Production host
+# Build for production
+npm run build
 ```
 
-## Local Development Setup
+## Monitoring and Maintenance
 
-For local development:
+### Cycle Management
+- Monitor cycle balance regularly
+- Top up cycles when balance falls below 2T
+- Current daily cycle burn rate: ~20M cycles
 
-1. Start a local replica:
-   ```bash
-   dfx start --clean --background
-   ```
-
-2. Deploy local canisters:
-   ```bash
-   dfx deploy
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-## Production Deployment Process
-
-1. Build the ZK Canister:
-   ```bash
-   cd backend/zk_canister
-   cargo build --target wasm32-unknown-unknown --release
-   ```
-
-2. Deploy the updated canister:
-   ```bash
-   dfx canister install zk_canister --wasm ../target/wasm32-unknown-unknown/release/zk_canister.wasm --network ic --mode upgrade
-   ```
-
-3. Build the frontend for production:
-   ```bash
-   npm run build
-   ```
-
-4. Deploy the frontend assets to a hosting provider of your choice or to an asset canister on the IC.
+### Performance Monitoring
+- Watch for memory usage spikes
+- Monitor compute allocation
+- Track number of proof generations and verifications
 
 ## Troubleshooting
 
-If you encounter issues during deployment, check:
+### Common Issues
 
-1. Ensure your identity has enough cycles
-2. Verify the canister WASM file exists at the expected location
-3. Check for any errors in the build process
-4. Confirm that you have the correct permissions to manage the canister 
+1. **Candid Interface Errors**
+   - Ensure Candid files are properly stored in metadata
+   - Update dfx.json if needed
+
+2. **Cycle Balance Issues**
+   - Check cycle balance with `dfx canister status`
+   - Top up if below threshold
+
+3. **Proof Generation Failures**
+   - Verify input format matches expected schema
+   - Check canister logs for detailed error messages
+
+## Security Considerations
+
+1. **Access Control**
+   - Controller management
+   - Principal validation
+
+2. **Proof Verification**
+   - Input validation
+   - Cryptographic verification
+
+3. **Cycle Management**
+   - Regular monitoring
+   - Automated alerts
+
+## Future Improvements
+
+1. **Main Canister Integration**
+   - User management
+   - Enhanced verification features
+   - Additional token standards support
+
+2. **Frontend Enhancements**
+   - Improved error handling
+   - Better UX for proof generation
+   - Enhanced verification UI
+
+## Contact
+
+For deployment issues or questions, please contact:
+- GitHub Issues
+- Development Team 

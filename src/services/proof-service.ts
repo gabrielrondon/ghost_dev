@@ -1,155 +1,115 @@
-import { HttpAgent, SubmitResponse } from '@dfinity/agent'
+import { HttpAgent, Actor } from '@dfinity/agent'
 import { Principal } from '@dfinity/principal'
 import { IDL } from '@dfinity/candid'
-import { TokenMetadata } from '../types/token'
-import { ZK_CANISTER_ID, IC_HOST } from '../config/canister-config'
+import { ZK_CANISTER_ID, IC_HOST } from '../config/canister.config'
+import { TokenStandard, TokenMetadata, TokenOwnershipInput, ProofResult, VerificationResult } from '../types/tokens'
 
-// Initialize agent
-const agent = new HttpAgent({ host: IC_HOST })
-
-interface ProofGenerationInput {
-  tokenMetadata: TokenMetadata
-  ownerPrincipal: string
-  amount: bigint
-  timestamp: bigint
-}
-
-interface ProofGenerationResult {
-  proofId: string
-  proofBlob: Uint8Array
-}
-
-interface ProofVerificationInput {
-  proofBlob: Uint8Array
-}
-
-interface ProofVerificationResult {
-  isValid: boolean
-  error?: string
-}
-
-interface TokenOwnershipInput {
-  balance: bigint
-  index: number
-  proof: number[]
-}
-
-interface ProofGenerationInput {
-  principal: Principal
-  tokenMetadata: TokenMetadata
-  ownershipInput: TokenOwnershipInput
-}
-
-const zkCanisterIdl = ({ IDL }: { IDL: any }) => {
-  return IDL.Service({
-    prove_ownership: IDL.Func(
-      [IDL.Text, {
-        principal: IDL.Text,
-        metadata: {
-          standard: IDL.Text,
-          canister: IDL.Text,
-          symbol: IDL.Text,
-          name: IDL.Text,
-          decimals: IDL.Nat8
-        },
-        ownership: {
-          balance: IDL.Nat,
-          index: IDL.Nat32,
-          proof: IDL.Vec(IDL.Nat8)
+// Declare window.ic type
+declare global {
+  interface Window {
+    ic?: {
+      plug?: {
+        agent?: {
+          getPrincipal: () => Promise<Principal>
         }
-      }],
-      [IDL.Vec(IDL.Nat8)],
-      []
-    ),
-    verify_proof: IDL.Func(
-      [IDL.Vec(IDL.Nat8)],
-      [IDL.Bool],
-      []
-    )
-  })
-}
-
-export async function generateProof({
-  tokenMetadata,
-  ownerPrincipal,
-  amount,
-  timestamp
-}: ProofGenerationInput): Promise<ProofGenerationResult> {
-  try {
-    const ownershipInput = {
-      principal: Principal.fromText(ownerPrincipal),
-      token: {
-        standard: tokenMetadata.standard,
-        decimals: tokenMetadata.decimals,
-        symbol: tokenMetadata.symbol,
-        canister: Principal.fromText(tokenMetadata.canisterId)
-      },
-      amount,
-      timestamp
-    }
-
-    // Call the ZK canister to generate proof
-    const response = await agent.call(
-      Principal.fromText(ZK_CANISTER_ID),
-      {
-        methodName: 'prove_ownership',
-        arg: IDL.encode([
-          IDL.Text,
-          IDL.Record({
-            principal: IDL.Principal,
-            token: IDL.Record({
-              standard: IDL.Text,
-              decimals: IDL.Nat8,
-              symbol: IDL.Text,
-              canister: IDL.Principal
-            }),
-            amount: IDL.Nat,
-            timestamp: IDL.Nat64
-          })
-        ], ['test', ownershipInput])
       }
-    ) as unknown as ArrayBuffer
-
-    // Process result and return proof data
-    const [proofId, proofBlob] = IDL.decode(
-      [IDL.Text, IDL.Vec(IDL.Nat8)], 
-      response
-    ) as [string, Uint8Array]
-    
-    return {
-      proofId,
-      proofBlob
     }
-
-  } catch (error) {
-    console.error('Error generating proof:', error)
-    throw new Error('Failed to generate proof')
   }
 }
 
-export async function verifyProof({
-  proofBlob
-}: ProofVerificationInput): Promise<ProofVerificationResult> {
+// Service interface
+export interface ZkCanisterService {
+  prove_ownership: (caller: Principal, input: TokenOwnershipInput) => Promise<ProofResult>
+  verify_proof: (proof: number[]) => Promise<VerificationResult>
+}
+
+// Create actor instance
+async function createActor(): Promise<ZkCanisterService> {
+  const agent = new HttpAgent({ host: IC_HOST })
+  if (IC_HOST.includes('localhost')) await agent.fetchRootKey()
+
+  const idlFactory = ({ IDL }) => {
+    const TokenStandard = IDL.Variant({
+      ERC20: IDL.Null,
+      ERC721: IDL.Null,
+      ERC1155: IDL.Null
+    })
+
+    const TokenMetadata = IDL.Record({
+      standard: TokenStandard,
+      chain_id: IDL.Nat64,
+      token_address: IDL.Text,
+      token_id: IDL.Opt(IDL.Text)
+    })
+
+    const TokenOwnershipInput = IDL.Record({
+      token: TokenMetadata,
+      owner_address: IDL.Text,
+      balance: IDL.Text,
+      block_number: IDL.Nat64,
+      proof_data: IDL.Vec(IDL.Text)
+    })
+
+    const ProofResult = IDL.Variant({
+      Success: IDL.Vec(IDL.Nat8),
+      Error: IDL.Text
+    })
+
+    const VerificationResult = IDL.Variant({
+      Success: IDL.Bool,
+      Error: IDL.Text
+    })
+
+    return IDL.Service({
+      prove_ownership: IDL.Func([IDL.Principal, TokenOwnershipInput], [ProofResult], []),
+      verify_proof: IDL.Func([IDL.Vec(IDL.Nat8)], [VerificationResult], ['query'])
+    })
+  }
+
+  return Actor.createActor(idlFactory, {
+    agent,
+    canisterId: ZK_CANISTER_ID
+  })
+}
+
+// Service functions
+export async function generateProof({
+  tokenMetadata,
+  ownerAddress,
+  balance,
+  blockNumber,
+  proofData
+}: {
+  tokenMetadata: TokenMetadata
+  ownerAddress: string
+  balance: string
+  blockNumber: bigint
+  proofData: string[]
+}): Promise<ProofResult> {
   try {
-    // Call the ZK canister to verify proof
-    const response = await agent.call(
-      Principal.fromText(ZK_CANISTER_ID),
-      {
-        methodName: 'verify_proof',
-        arg: IDL.encode([IDL.Vec(IDL.Nat8)], [proofBlob])
-      }
-    ) as unknown as ArrayBuffer
+    const actor = await createActor()
+    const caller = await window.ic?.plug?.agent?.getPrincipal()
+    if (!caller) throw new Error('No principal found')
 
-    const [isValid] = IDL.decode([IDL.Bool], response) as [boolean]
-
-    return {
-      isValid
+    const input: TokenOwnershipInput = {
+      token: tokenMetadata,
+      owner_address: ownerAddress,
+      balance,
+      block_number: blockNumber,
+      proof_data: proofData
     }
+
+    return await actor.prove_ownership(caller, input)
   } catch (error) {
-    console.error('Error verifying proof:', error)
-    return {
-      isValid: false,
-      error: 'Failed to verify proof'
-    }
+    return { Error: error instanceof Error ? error.message : 'Unknown error occurred' }
+  }
+}
+
+export async function verifyProof(proof: number[]): Promise<VerificationResult> {
+  try {
+    const actor = await createActor()
+    return await actor.verify_proof(proof)
+  } catch (error) {
+    return { Error: error instanceof Error ? error.message : 'Unknown error occurred' }
   }
 }

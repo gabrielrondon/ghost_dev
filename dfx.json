@@ -27,7 +27,14 @@
     "zk_canister_v2": {
       "candid": "backend/zk_canister_v2/zk_canister_v2.did",
       "package": "zk_canister_v2",
-      "type": "rust"
+      "type": "rust",
+      "source": ["backend/zk_canister_v2/src"],
+      "metadata": [
+        {
+          "name": "candid:service",
+          "path": "backend/zk_canister_v2/zk_canister_v2.did"
+        }
+      ]
     },
     "frontend": {
       "dependencies": [
@@ -45,7 +52,7 @@
   },
   "defaults": {
     "build": {
-      "args": "",
+      "args": "--target wasm32-unknown-unknown --release",
       "packtool": ""
     }
   },
