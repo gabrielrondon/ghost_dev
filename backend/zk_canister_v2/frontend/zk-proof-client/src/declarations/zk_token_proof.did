@@ -1,0 +1,29 @@
+type Proof = record {
+  proof_bytes: vec nat8;
+  public_inputs: vec nat64;
+};
+
+type ProofId = nat64;
+
+type Result = variant {
+  Ok: ProofId;
+  Err: text;
+};
+
+type VerifyResult = variant {
+  Ok: bool;
+  Err: text;
+};
+
+type Metrics = record {
+  total_proofs_generated: nat64;
+  total_proofs_verified: nat64;
+  avg_proof_generation_time_ms: nat64;
+  avg_proof_verification_time_ms: nat64;
+};
+
+service : {
+  "generate_proof": (balance: nat64, min_range: nat64, max_range: nat64) -> (Result);
+  "verify_proof": (proof_id: ProofId) -> (VerifyResult) query;
+  "get_metrics": () -> (Metrics) query;
+} 

@@ -1,0 +1,45 @@
+type TokenStandard = variant {
+    ICRC1;
+    ICRC2;
+    DIP20;
+    EXT;
+};
+
+type TokenMetadata = record {
+    standard: TokenStandard;
+    decimals: nat8;
+    fee: opt nat8;
+    symbol: text;
+    total_supply: nat;
+    transfer_fee: opt nat;
+};
+
+type TokenOwnershipInput = record {
+    owner: principal;
+    token_metadata: TokenMetadata;
+    balance_ranges: vec record { nat64; nat64 };
+    timestamp: nat64;
+    nonce: vec nat8;
+};
+
+type ProofError = variant {
+    InternalError;
+    InvalidInput;
+    GenerationFailed;
+    VerificationFailed;
+};
+
+type ProofResult = variant {
+    Success: vec nat8;
+    Error: ProofError;
+};
+
+type VerificationResult = variant {
+    Valid;
+    Invalid;
+};
+
+service : {
+    "prove_ownership": (principal, TokenOwnershipInput) -> (ProofResult);
+    "verify_proof": (vec nat8) -> (VerificationResult);
+} 

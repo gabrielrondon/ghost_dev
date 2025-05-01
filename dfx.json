@@ -25,14 +25,14 @@
       ]
     },
     "zk_canister_v2": {
-      "candid": "backend/zk_canister_v2/zk_canister_v2.did",
+      "candid": "backend/zk_canister_v2/src/zk_token_proof.did",
       "package": "zk_canister_v2",
       "type": "rust",
       "source": ["backend/zk_canister_v2/src"],
       "metadata": [
         {
           "name": "candid:service",
-          "path": "backend/zk_canister_v2/zk_canister_v2.did"
+          "path": "backend/zk_canister_v2/src/zk_token_proof.did"
         }
       ]
     },
@@ -52,7 +52,7 @@
   },
   "defaults": {
     "build": {
-      "args": "--target wasm32-unknown-unknown --release",
+      "args": "",
       "packtool": ""
     }
   },
@@ -62,6 +62,13 @@
     "local": {
       "bind": "127.0.0.1:8000",
       "type": "ephemeral"
+    },
+    "staging": {
+      "providers": ["https://icp0.io"],
+      "type": "persistent",
+      "wallet": {
+        "canister": "h5yqz-nqaaa-aaaad-aalnq-cai"
+      }
     },
     "ic": {
       "providers": ["https://ic0.app"],

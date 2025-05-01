@@ -1,23 +1,26 @@
-# Ghost - ZK Notary Agent
+# Ghost - ZK Notary Agent Backend
 
-A Zero-Knowledge Proof system for private attestations on the Internet Computer.
+A Zero-Knowledge Proof system for private attestations on the Internet Computer. This repository contains the backend/canister components of the Ghost ZK proof system, focusing on range proofs and token ownership verification.
 
 ## Repository Organization
 
-This repository contains both the backend and frontend components of the Ghost ZK proof system.
+This repository contains the backend components of the Ghost ZK proof system, focusing on the ZK canisters for proof generation and verification. The frontend application is maintained in a separate repository.
 
 ## Canister Structure
 
-This repository contains the following canisters:
+This repository contains two ZK canisters:
 
-1. **ZK Canister** (`hi7bu-myaaa-aaaad-aaloa-cai`)
-   - Handles zero-knowledge proof generation and verification
+1. **ZK Canister V1** (`hi7bu-myaaa-aaaad-aaloa-cai`)
+   - Basic zero-knowledge proof generation and verification
+   - Cross-chain verification support (via Chain Fusion)
    - Provides cryptographic attestations without revealing sensitive data
-   - Deployed on the Internet Computer mainnet
+   - [Candid UI](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=hi7bu-myaaa-aaaad-aaloa-cai)
 
-2. **Main Canister** (Planned for Milestone 2)
-   - Will handle user management and additional functionality
-   - Currently in development
+2. **ZK Canister V2** (`bkyz2-fmaaa-aaaaa-qaaaq-cai`)
+   - Enhanced proof generation using Halo2 ZK-SNARKs
+   - Specialized in range proofs for token balances
+   - Improved verification process with witness assignments
+   - [Local Candid UI](http://127.0.0.1:8000/?canisterId=be2us-64aaa-aaaaa-qaabq-cai&id=bkyz2-fmaaa-aaaaa-qaaaq-cai)
 
 ## Getting Started
 
@@ -25,11 +28,10 @@ This repository contains the following canisters:
 
 - [DFX SDK](https://internetcomputer.org/docs/current/developer-docs/build/install-dfx) (v0.15.0 or later)
 - Rust (latest stable version)
+- Cargo (latest stable version)
 - [ic-wasm](https://github.com/dfinity/ic-wasm) for WebAssembly optimization
-- Node.js (v18 or later)
-- npm (v8 or later)
 
-### Building and Running
+### Installation
 
 ```bash
 # Clone this repository
@@ -39,162 +41,164 @@ cd ghost-backend
 # Install dependencies
 npm install
 
-# Build the canisters
-dfx build
-
-# Deploy locally for testing
+# Start local replica
 dfx start --background
+
+# Build and deploy locally
+dfx build
 dfx deploy
 ```
 
-## Canister Interface
+## Frontend Integration Guide
 
-The ZK canister provides the following methods:
+### V2 Canister Integration
 
-```candid
-type TokenStandard = variant {
-    ICRC1;
-    ICRC2;
-    ICRC3;
-    ICRC4;
-    ICP;
-    DIP20;
-    EXT;
-};
+The V2 canister provides two main endpoints for frontend integration:
 
-type TokenMetadata = record {
-    chain_id: nat64;
-    token_address: text;
-    token_standard: TokenStandard;
-    token_id: opt text;
-};
-
-type TokenOwnershipInput = record {
-    token: TokenMetadata;
-    owner_address: text;
-    balance: text;
-    block_number: nat64;
-};
-
-type ProofGenerationError = variant {
-    InvalidInput;
-    InternalError;
-};
-
-type ProofVerificationError = variant {
-    InvalidProof;
-    InternalError;
-};
-
-type Result = variant {
-    Ok: text;
-    Err: ProofGenerationError;
-};
-
-type Result_1 = variant {
-    Ok: bool;
-    Err: ProofVerificationError;
-};
-
-service : {
-    prove_ownership: (text, TokenOwnershipInput) -> (Result);
-    verify_proof: (text) -> (Result_1) query;
-};
-```
-
-## Integration Example
-
-Here's a basic example of how to integrate with the ZK canister:
-
+1. **Generate Proof**
 ```typescript
-import { HttpAgent } from '@dfinity/agent'
-import { Principal } from '@dfinity/principal'
-import { IDL } from '@dfinity/candid'
+type TokenRangeInput = {
+  balance: bigint;    // The balance to prove
+  min_range: bigint;  // Minimum range value
+  max_range: bigint;  // Maximum range value
+};
 
 // Generate a proof
-async function generateProof(caller: string, input: TokenOwnershipInput): Promise<string> {
-  const agent = new HttpAgent({ host: 'https://ic0.app' })
-  await agent.fetchRootKey()
+const result = await actor.generate_proof({
+  balance: 1000n,
+  min_range: 0n,
+  max_range: 5000n
+});
 
-  const canisterId = Principal.fromText('hi7bu-myaaa-aaaad-aaloa-cai')
-  const arg = IDL.encode([IDL.Text, TokenOwnershipInputType], [caller, input])
-
-  const requestId = await agent.call(canisterId, {
-    methodName: 'prove_ownership',
-    arg,
-    effectiveCanisterId: canisterId
-  })
-
-  // Poll for response
-  let attempts = 0
-  const maxAttempts = 30
-  while (attempts < maxAttempts) {
-    try {
-      const status = await agent.query(canisterId, {
-        methodName: 'verify_proof',
-        arg: IDL.encode([IDL.Text], [requestId.requestId])
-      })
-
-      if ((status as QueryResponseRejected).reject_message) {
-        throw new Error((status as QueryResponseRejected).reject_message)
-      }
-
-      const [result] = IDL.decode(
-        [ProofGenerationResultType], 
-        (status as QueryResponseReplied).reply.arg
-      ) as [ProofGenerationResult]
-      
-      if ('Err' in result) {
-        throw new Error(`Failed to generate proof: ${Object.keys(result.Err)[0]}`)
-      }
-
-      return result.Ok
-    } catch (error) {
-      if (attempts === maxAttempts - 1) throw error
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      attempts++
-    }
-  }
-
-  throw new Error('Request timed out')
-}
-
-// Verify a proof
-async function verifyProof(proofId: string): Promise<boolean> {
-  const agent = new HttpAgent({ host: 'https://ic0.app' })
-  await agent.fetchRootKey()
-
-  const response = await agent.query(
-    Principal.fromText('hi7bu-myaaa-aaaad-aaloa-cai'),
-    {
-      methodName: 'verify_proof',
-      arg: IDL.encode([IDL.Text], [proofId])
-    }
-  )
-
-  if ((response as QueryResponseRejected).reject_message) {
-    console.error('Proof verification rejected:', (response as QueryResponseRejected).reject_message)
-    return false
-  }
-
-  const replied = response as QueryResponseReplied
-  const [result] = IDL.decode([ProofVerificationResultType], replied.reply.arg) as [ProofVerificationResult]
-  
-  if ('Err' in result) {
-    console.error('Proof verification error:', Object.keys(result.Err)[0])
-    return false
-  }
-
-  return result.Ok
+// Handle the result
+if ('Ok' in result) {
+  const proofId = result.Ok;  // Store this ID for verification
+} else {
+  console.error('Error:', result.Err);
 }
 ```
 
-## Developer Documentation
+2. **Verify Proof**
+```typescript
+// Verify a previously generated proof
+const verificationResult = await actor.verify_proof_by_id(proofId);
 
-For detailed development information, please refer to the following documents:
+// Handle verification result
+if ('Ok' in verificationResult) {
+  const isValid = verificationResult.Ok;
+  console.log('Proof verification:', isValid);
+} else {
+  console.error('Verification error:', verificationResult.Err);
+}
+```
 
-- [Milestone 1 Documentation](./docs/milestone1.md)
-- [Deployment Guide](./DEPLOYMENT.md)
+### Example Integration Flow
+
+```typescript
+import { Actor, HttpAgent } from "@dfinity/agent";
+import { idlFactory } from "./declarations/zk_canister_v2.did";
+
+// Initialize agent and actor
+const agent = new HttpAgent();
+const actor = Actor.createActor(idlFactory, {
+  agent,
+  canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+});
+
+// Generate and verify a proof
+async function generateAndVerifyProof(balance: bigint, minRange: bigint, maxRange: bigint) {
+  try {
+    // Generate proof
+    const genResult = await actor.generate_proof({
+      balance,
+      min_range: minRange,
+      max_range: maxRange
+    });
+    
+    if ('Err' in genResult) {
+      throw new Error(genResult.Err);
+    }
+    
+    // Verify proof
+    const proofId = genResult.Ok.toString();
+    const verifyResult = await actor.verify_proof_by_id(proofId);
+    
+    if ('Err' in verifyResult) {
+      throw new Error(verifyResult.Err);
+    }
+    
+    return verifyResult.Ok;
+  } catch (error) {
+    console.error('Error:', error);
+    return false;
+  }
+}
+```
+
+## System Architecture
+
+```plantuml
+@startuml
+actor "User" as user
+participant "Frontend\nApplication" as frontend
+participant "ZK Canister V2" as zkv2
+database "Proof Storage" as storage
+
+user -> frontend: Request Range Proof
+activate frontend
+
+frontend -> zkv2: generate_proof(balance, min, max)
+activate zkv2
+
+zkv2 -> zkv2: Create ZK Circuit
+zkv2 -> zkv2: Generate Proof
+zkv2 -> storage: Store Proof
+zkv2 --> frontend: Return Proof ID
+deactivate zkv2
+
+frontend --> user: Proof Generated
+
+user -> frontend: Request Verification
+activate frontend
+
+frontend -> zkv2: verify_proof_by_id(proofId)
+activate zkv2
+
+zkv2 -> storage: Retrieve Proof
+zkv2 -> zkv2: Verify Proof
+zkv2 --> frontend: Verification Result
+deactivate zkv2
+
+frontend --> user: Verification Result
+deactivate frontend
+@enduml
+```
+
+## Development and Testing
+
+### Local Testing
+```bash
+# Generate a proof
+dfx canister call zk_canister_v2 generate_proof '(record { balance = 1000 : nat64; min_range = 0 : nat64; max_range = 5000 : nat64 })'
+
+# Verify a proof
+dfx canister call zk_canister_v2 verify_proof_by_id '("proof_id")'
+```
+
+### Monitoring
+```bash
+# Check canister status
+dfx canister status zk_canister_v2
+
+# View canister metrics
+dfx canister call zk_canister_v2 get_canister_metrics
+```
+
+## Documentation
+
+For more detailed information, please refer to:
+- [Milestone Documentation](./docs/milestone.md) - Detailed technical specifications
+- [Deployment Guide](./DEPLOYMENT.md) - Deployment instructions and configurations
 
 ## License
 

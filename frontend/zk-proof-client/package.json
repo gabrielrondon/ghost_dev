@@ -1,0 +1,31 @@
+{
+  "name": "@ghost/zk-proof-client",
+  "version": "1.0.0",
+  "description": "Frontend client for the Ghost Protocol ZK Token Proof Canister",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts"
+  },
+  "dependencies": {
+    "@dfinity/agent": "^0.15.6",
+    "@dfinity/candid": "^0.15.6",
+    "@dfinity/principal": "^0.15.6"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "eslint": "^8.38.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.4"
+  },
+  "peerDependencies": {
+    "@dfinity/agent": "^0.15.6",
+    "@dfinity/candid": "^0.15.6",
+    "@dfinity/principal": "^0.15.6"
+  }
+} 

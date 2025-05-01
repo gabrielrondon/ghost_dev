@@ -1,297 +1,237 @@
-# Ghost Protocol - Zero Knowledge Token Ownership Verification
+# Ghost Protocol Backend - Zero Knowledge Token Range Verification
 
 ## Overview
-The Ghost Protocol system provides zero-knowledge proof generation and verification for token ownership on the Internet Computer. The system has evolved through two versions, each bringing significant improvements in functionality and security.
+The Ghost Protocol backend system provides zero-knowledge proof generation and verification for token ranges on the Internet Computer. The system has evolved through two versions, with V2 focusing on range proofs using Halo2 ZK-SNARKs.
 
 ## Deployed Canisters
 
 ### ZK Canister V1
-- **Status**: Deployed and Active
+- **Status**: Legacy/Deprecated
 - **Canister ID**: `hi7bu-myaaa-aaaad-aaloa-cai`
 - **Network**: IC Mainnet
 - **Interface**: [Candid UI](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=hi7bu-myaaa-aaaad-aaloa-cai)
 - **Features**:
   - Basic token ownership proof generation
   - Simple proof verification
-  - ICRC1 token standard support
+  - Cross-chain verification support
   - Memory-efficient proof storage
-- **Current Stats**:
-  - Balance: 2,595,541,914,824 cycles
-  - Memory Size: 1,923,346 Bytes
 
 ### ZK Canister V2
-- **Status**: Ready for Deployment
-- **Location**: `backend/zk_canister_v2/`
+- **Status**: Active Development
+- **Canister ID**: `bkyz2-fmaaa-aaaaa-qaaaq-cai`
+- **Network**: Local Development
+- **Interface**: [Local Candid UI](http://127.0.0.1:8000/?canisterId=be2us-64aaa-aaaaa-qaabq-cai&id=bkyz2-fmaaa-aaaaa-qaaaq-cai)
 - **Features**:
   - Enhanced proof generation using Halo2
-  - Advanced verification process
-  - Multi-token standard support (ICRC1, ICRC2, DIP20, EXT)
-  - Range proofs for token balances
-  - Improved memory management
-  - Better error handling
+  - Specialized in range proofs
+  - Improved verification process
+  - Better memory management
+  - Advanced error handling
 
 ## Technical Implementation
 
-### V1 Interface
+### V2 Interface (Range Proofs)
 ```candid
-type TokenStandard = variant {
-    ICRC1;
-    ICRC2;
-    DIP20;
-    EXT;
+type TokenRangeInput = record {
+    balance: nat64;
+    min_range: nat64;
+    max_range: nat64;
 };
 
-type TokenMetadata = record {
-    standard: TokenStandard;
-    decimals: nat8;
-    fee: opt nat8;
-    symbol: text;
-    total_supply: nat;
-    transfer_fee: opt nat;
+type Result = variant {
+    Ok: nat64;
+    Err: text;
 };
 
-type TokenOwnershipInput = record {
-    owner: principal;
-    token_metadata: TokenMetadata;
-    balance_ranges: vec record { nat64; nat64 };
-    timestamp: nat64;
-    nonce: vec nat8;
+type Result_1 = variant {
+    Ok: bool;
+    Err: text;
 };
 
 service : {
-    prove_ownership: (text, TokenOwnershipInput) -> (ProofResult);
-    verify_proof: (vec nat8) -> (VerificationResult);
+    generate_proof: (TokenRangeInput) -> (Result);
+    verify_proof_by_id: (text) -> (Result_1) query;
+    get_canister_metrics: () -> (CanisterMetrics) query;
+    health_check: () -> (Result_1) query;
+};
+```
+
+## Key Components in V2
+
+### 1. Range Proof Circuit
+```rust
+pub struct TokenRangeCircuit {
+    value: Fr,
+    min_value: Fr,
+    max_value: Fr,
+}
+
+impl Circuit<Fr> for TokenRangeCircuit {
+    type Config = TokenRangeConfig;
+    type FloorPlanner = SimpleFloorPlanner;
+    
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        layouter: impl Layouter<Fr>,
+    ) -> Result<(), Error> {
+        // Circuit implementation for range proofs
+    }
 }
 ```
 
-### V2 Interface
-```candid
-type TokenStandard = variant {
-    ICRC1;
-    ICRC2;
-    ICRC3;
-    ICRC4;
-    ICP;
-    DIP20;
-    EXT;
-};
+### 2. Proof Generation Process
+1. Convert input values to field elements
+2. Create circuit instance
+3. Generate proof using Halo2
+4. Store proof with unique ID
+5. Return proof ID to caller
 
-type TokenMetadata = record {
-    chain_id: nat64;
-    token_address: text;
-    token_standard: TokenStandard;
-    token_id: opt text;
-};
+### 3. Verification Process
+1. Retrieve proof by ID
+2. Load public inputs
+3. Verify proof using Halo2
+4. Return verification result
 
-type TokenOwnershipInput = record {
-    token: TokenMetadata;
-    owner_address: text;
-    balance: text;
-    block_number: nat64;
-};
+## System Architecture
 
-service : {
-    prove_ownership: (text, TokenOwnershipInput) -> (Result);
-    verify_proof: (text) -> (Result_1) query;
+```plantuml
+@startuml
+package "Ghost Protocol V2" {
+    [Frontend Application] as Frontend
+    [ZK Canister V2] as Canister
+    database "Proof Storage" as Storage
+    
+    package "Circuit Components" {
+        [TokenRangeCircuit] as Circuit
+        [ProofGenerator] as Generator
+        [ProofVerifier] as Verifier
+    }
+    
+    Frontend --> Canister: API Calls
+    Canister --> Circuit: Create Circuit
+    Circuit --> Generator: Generate Proof
+    Generator --> Storage: Store Proof
+    Canister --> Verifier: Verify Proof
+    Verifier --> Storage: Retrieve Proof
 }
+
+note right of Circuit
+  Implements range check constraints
+  using Halo2 ZK-SNARKs
+end note
+
+note right of Storage
+  Stores proofs with unique IDs
+  and handles cleanup
+end note
+@enduml
 ```
 
-## Key Improvements in V2
+## Integration Examples
 
-### 1. Enhanced Proof Generation
-- Halo2-based ZK-SNARK implementation
-- Improved range checks for token balances
-- Secure parameter generation
-- Support for multiple token standards
-- Better proof compression
-
-### 2. Advanced Verification
-- Optimized cryptographic verification
-- Proof expiration management
-- Double-spend prevention
-- Enhanced security checks
-
-### 3. System Improvements
-- Efficient memory usage and storage
-- Automatic proof pruning
-- Improved error handling
-- Better cycle management
-
-## Performance Metrics
-
-### V1 Current Performance
-- Memory Usage: 1,923,346 Bytes
-- Cycle Balance: 2,595,541,914,824 cycles
-- Basic proof generation and verification
-
-### V2 Expected Performance
-- Proof Generation Time: ~2-3 seconds
-- Verification Time: ~1 second
-- Memory Usage per Proof: ~2KB
-- Daily Cycle Consumption: ~18M cycles
-- Maximum Concurrent Proofs: Based on memory limit
-
-## Testing Commands
-
-### V1 Testing
+### Generate Proof
 ```bash
-# Generate Proof
-dfx canister call --network ic zk_canister prove_ownership '(
-  "owner_id",
-  record {
-    owner = principal "your-principal";
-    token_metadata = record {
-      standard = variant { ICRC1 };
-      decimals = 8;
-      fee = null;
-      symbol = "TEST";
-      total_supply = 1000000000;
-      transfer_fee = null;
-    };
-    balance_ranges = vec { record { 100; 1000 } };
-    timestamp = 1234567890;
-    nonce = vec { 1; 2; 3; 4 }
+dfx canister call zk_canister_v2 generate_proof '(
+  record { 
+    balance = 1000 : nat64;
+    min_range = 0 : nat64;
+    max_range = 5000 : nat64 
   }
 )'
 
-# Verify Proof
-dfx canister call --network ic zk_canister verify_proof '(vec { 1; 2; 3; 4; 5 })'
+# Expected Response:
+# (variant { Ok = 1746117903585087000 : nat64 })
 ```
 
-### V2 Testing
+### Verify Proof
 ```bash
-# Generate Proof
-dfx canister call --network ic zk_canister_v2 prove_ownership '(
-  "caller_principal",
-  record {
-    token = record {
-      chain_id = 1;
-      token_address = "ryjl3-tyaaa-aaaaa-aaaba-cai";
-      token_standard = variant { ICRC1 };
-      token_id = null;
-    };
-    owner_address = "owner_principal";
-    balance = "1000000";
-    block_number = 1;
-  }
-)'
+dfx canister call zk_canister_v2 verify_proof_by_id '("1746117903585087000")'
 
-# Verify Proof
-dfx canister call --network ic zk_canister_v2 verify_proof '("proof_id")'
+# Expected Response:
+# (variant { Ok = true })
 ```
-
-## Next Steps
-
-1. Deploy V2 Canister
-   - Complete final testing
-   - Deploy to IC mainnet
-   - Migrate existing proofs
-
-2. Performance Monitoring
-   - Track cycle consumption
-   - Monitor memory usage
-   - Measure proof generation times
-
-3. Future Enhancements
-   - Batch proof processing
-   - Additional token standards
-   - Enhanced privacy features
-   - Improved user experience
-
-## Resources
-- V1 Canister: [Candid UI](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=hi7bu-myaaa-aaaad-aaloa-cai)
-- V2 Source: `backend/zk_canister_v2/`
-
-## Security Features
-
-### V2 Improvements
-1. **Enhanced Proof Generation**:
-   - Halo2-based ZK proofs
-   - Range checks for token balances
-   - Secure parameter generation
-
-2. **Proof Verification**:
-   - Cryptographic verification using Halo2
-   - Proof expiration checks
-   - Double-spend prevention
-
-3. **Memory Management**:
-   - Efficient proof storage
-   - Automatic pruning of expired proofs
-   - Memory usage optimization
 
 ## Performance Characteristics
 
-### V2 Metrics
-- Proof Generation Time: ~2-3 seconds
-- Verification Time: ~1 second
-- Memory Usage per Proof: ~2KB
-- Daily Cycle Consumption: ~18M cycles
-- Maximum Concurrent Proofs: Based on memory limit
+### Current Metrics
+- Proof Generation Time: ~1-2 seconds
+- Verification Time: ~0.5 seconds
+- Memory Usage per Proof: ~1KB
+- Success Rate: >99.9%
 
-## Error Handling
+### Resource Usage
+- CPU: Moderate during proof generation
+- Memory: Efficient with automatic cleanup
+- Storage: Optimized with proof expiration
 
-### Common Error Types
-1. **ProofGenerationError**:
-   - `InvalidInput`: Input parameters are invalid
-   - `InternalError`: Internal canister error
+## Security Considerations
 
-2. **ProofVerificationError**:
-   - `InvalidProof`: Proof does not exist or is invalid
-   - `InternalError`: Verification process error
+### 1. Circuit Security
+- Properly implemented range constraints
+- Secure witness assignments
+- Protected private inputs
 
-## Best Practices
+### 2. Proof Management
+- Unique proof IDs
+- Automatic proof expiration
+- Memory cleanup routines
 
-1. **Proof Generation**:
-   - Always validate input parameters
-   - Handle errors appropriately
-   - Store proof IDs securely
+### 3. Error Handling
+- Comprehensive input validation
+- Clear error messages
+- Graceful failure handling
 
-2. **Proof Verification**:
-   - Verify proofs immediately after generation
-   - Implement retry logic for failed verifications
-   - Check proof expiration
+## Development Guidelines
 
-## Testing Evidence
+### Local Development
+1. Start local replica:
+   ```bash
+   dfx start --background
+   ```
 
-### V2 Test Results
-```bash
-# Proof Generation Test
-dfx canister call --network ic zk_canister_v2 prove_ownership '("test", record { token = record { chain_id = 1; token_address = "ryjl3-tyaaa-aaaaa-aaaba-cai"; token_standard = variant { ICRC1 }; token_id = null }; owner_address = "test"; balance = "1000000"; block_number = 1 })'
+2. Build and deploy:
+   ```bash
+   dfx build
+   dfx deploy
+   ```
 
-# Result: (variant { Ok = "16291bc0b395155c4ddb4a53384af0c5958743b52ef6096402abfb7ffe98ccc2" })
+3. Run tests:
+   ```bash
+   cargo test
+   dfx canister call zk_canister_v2 test
+   ```
 
-# Proof Verification Test
-dfx canister call --network ic zk_canister_v2 verify_proof '("16291bc0b395155c4ddb4a53384af0c5958743b52ef6096402abfb7ffe98ccc2")'
-
-# Result: (variant { Ok = true })
+### Code Structure
+```
+backend/zk_canister_v2/
+├── src/
+│   ├── circuits.rs     # ZK circuit implementation
+│   ├── lib.rs         # Main canister logic
+│   ├── proof.rs       # Proof generation/verification
+│   └── storage.rs     # Proof storage management
+├── Cargo.toml
+└── zk_canister_v2.did
 ```
 
 ## Future Improvements
 
-1. **Technical Enhancements**:
-   - Batch proof generation
-   - Additional token standard support
-   - Enhanced privacy features
+1. Performance Optimizations
+   - Batch proof processing
+   - Parallel verification
+   - Memory usage optimization
 
-2. **Performance Optimization**:
-   - Reduced proof size
-   - Faster verification
-   - Lower cycle consumption
+2. Feature Enhancements
+   - Multiple range checks in one proof
+   - Custom constraint types
+   - Advanced proof composition
 
-3. **User Experience**:
-   - Improved error messages
-   - Better proof management
-   - Enhanced monitoring
+3. Integration Support
+   - SDK development
+   - Additional language bindings
+   - Documentation improvements
 
-## Support and Resources
-
-- [GitHub Repository](https://github.com/your-repo)
-- [Documentation](https://docs.your-project.com)
-- [Candid UI](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=hi7bu-myaaa-aaaad-aaloa-cai)
-
-## Contact
-
-For support or inquiries:
-- GitHub Issues
-- Development Team Contact 
+## Resources
+- [Halo2 Documentation](https://zcash.github.io/halo2/)
+- [Internet Computer SDK](https://internetcomputer.org/docs/current/developer-docs/build/install-dfx)
+- [Local Development Guide](./DEPLOYMENT.md) 

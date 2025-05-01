@@ -9,40 +9,49 @@ type TokenStandard = variant {
 };
 
 type TokenMetadata = record {
-    chain_id: nat64;
-    token_address: text;
-    token_standard: TokenStandard;
-    token_id: opt text;
+    standard: TokenStandard;
+    decimals: nat8;
+    fee: opt nat8;
+    symbol: text;
+    total_supply: nat;
+    transfer_fee: opt nat;
 };
 
-type TokenOwnershipInput = record {
-    token: TokenMetadata;
-    owner_address: text;
-    balance: text;
-    block_number: nat64;
-};
-
-type ProofGenerationError = variant {
-    InvalidInput;
-    InternalError;
-};
-
-type ProofVerificationError = variant {
-    InvalidProof;
-    InternalError;
+type TokenRangeInput = record {
+    balance: nat64;
+    min_range: nat64;
+    max_range: nat64;
 };
 
 type Result = variant {
-    Ok: text;
-    Err: ProofGenerationError;
+    Ok: nat64;
+    Err: text;
 };
 
 type Result_1 = variant {
     Ok: bool;
-    Err: ProofVerificationError;
+    Err: text;
+};
+
+type CanisterMetrics = record {
+    total_proofs_verified: nat64;
+    avg_proof_generation_time_ms: nat64;
+    total_proofs_generated: nat64;
+    total_errors: nat64;
+    error_types: vec record { text; nat64 };
+    avg_proof_verification_time_ms: nat64;
+};
+
+type HealthStatus = record {
+    status: text;
+    memory_mb: float64;
+    cycles: nat64;
+    timestamp: nat64;
 };
 
 service : {
-    prove_ownership: (text, TokenOwnershipInput) -> (Result);
-    verify_proof: (text) -> (Result_1) query;
+    generate_proof: (TokenRangeInput) -> (Result);
+    verify_proof_by_id: (text) -> (Result_1) query;
+    get_canister_metrics: () -> (CanisterMetrics) query;
+    health_check: () -> (Result_1) query;
 }; 

@@ -7,15 +7,30 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-candid = "0.9.11"
+candid = "0.9.9"
 ic-cdk = "0.11.3"
 ic-cdk-macros = "0.8.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sha2 = "0.10.8"
 hex = "0.4.3"
-getrandom = { version = "0.2.10", features = ["js"] }
-rand = { version = "0.8", features = ["getrandom"] }
+sha2 = "0.10.8"
+num-bigint = "0.4"
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2", tag = "v0.3.0" }
+halo2curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves", tag = "0.3.0" }
+rand = "0.8.5"
+group = "0.13.0"
+rand_core = "0.6.4"
+async-trait = "0.1.74"
+futures = "0.3.29"
+ic-stable-structures = "0.5.6"
+thiserror = "1.0.50"
+
+# Base64 with version compatible with rustc 1.80
+base64ct = "=1.6.0"
+# Use older version of litemap
+litemap = "=0.7.4"
+# Use older version of zerofrom
+zerofrom = "=0.1.5"
 
 # ZK proof dependencies
 ark-ff = { version = "0.4.0", default-features = false }
@@ -25,7 +40,14 @@ ark-std = { version = "0.4.0", default-features = false }
 ark-groth16 = { version = "0.4.0", default-features = false }
 ark-serialize = { version = "0.4.0", default-features = false }
 ark-crypto-primitives = { version = "0.4.0", default-features = false, features = ["r1cs"] }
+getrandom = { version = "0.2", features = ["custom"] }
 
 [dev-dependencies]
-tokio = { version = "1.28.1", features = ["full"] }
-ic-agent = "0.27.0" 
+tokio = { version = "1.28", features = ["full"] }
+ic-agent = "0.25.0"
+mockall = "0.11.4"
+async-std = { version = "1.12.0", features = ["attributes"] }
+
+[features]
+default = []
+ic-cdk-staging = [] # For staging environment 
