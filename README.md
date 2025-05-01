@@ -12,7 +12,6 @@ This repository contains two ZK canisters:
 
 1. **ZK Canister V1** (`hi7bu-myaaa-aaaad-aaloa-cai`)
    - Basic zero-knowledge proof generation and verification
-   - Cross-chain verification support (via Chain Fusion)
    - Provides cryptographic attestations without revealing sensitive data
    - [Candid UI](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=hi7bu-myaaa-aaaad-aaloa-cai)
 
