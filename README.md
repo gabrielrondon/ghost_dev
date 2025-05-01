@@ -16,11 +16,11 @@ This repository contains two ZK canisters:
    - Provides cryptographic attestations without revealing sensitive data
    - [Candid UI](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=hi7bu-myaaa-aaaad-aaloa-cai)
 
-2. **ZK Canister V2** (`bkyz2-fmaaa-aaaaa-qaaaq-cai`)
+2. **ZK Canister V2** (`bdwxd-wiaaa-aaaad-aalza-cai`)
    - Enhanced proof generation using Halo2 ZK-SNARKs
    - Specialized in range proofs for token balances
    - Improved verification process with witness assignments
-   - [Local Candid UI](http://127.0.0.1:8000/?canisterId=be2us-64aaa-aaaaa-qaabq-cai&id=bkyz2-fmaaa-aaaaa-qaaaq-cai)
+   - [Candid UI](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=bdwxd-wiaaa-aaaad-aalza-cai)
 
 ## Getting Started
 
@@ -99,10 +99,12 @@ import { Actor, HttpAgent } from "@dfinity/agent";
 import { idlFactory } from "./declarations/zk_canister_v2.did";
 
 // Initialize agent and actor
-const agent = new HttpAgent();
+const agent = new HttpAgent({
+  host: "https://ic0.app" // IC mainnet
+});
 const actor = Actor.createActor(idlFactory, {
   agent,
-  canisterId: "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+  canisterId: "bdwxd-wiaaa-aaaad-aalza-cai"
 });
 
 // Generate and verify a proof
