@@ -22,8 +22,9 @@ use serde::Serialize;
 use crate::{
     circuits::TokenRangeCircuit,
     metrics::{CanisterMetrics, get_metrics},
-    proof::{TokenOwnershipInput, generate_proof_internal, verify_proof_internal},
+    proof::{TokenOwnershipInput, generate_proof_internal, verify_proof_internal, TokenStandard},
     storage::{ProofStorage, StoredProof},
+    token_verification::verify_token_balance,
 };
 
 mod circuits;
@@ -156,8 +157,19 @@ pub fn init() {
 }
 
 #[update]
-pub fn generate_proof(input: TokenOwnershipInput) -> Result<u64, String> {
+pub async fn generate_proof(input: TokenOwnershipInput) -> Result<u64, String> {
     input.validate()?;
+
+    let owner = caller();
+    let verified = verify_token_balance(
+        input.token_canister,
+        owner,
+        input.balance,
+        &input.token_standard,
+    ).await?;
+    if !verified {
+        return Err("Balance verification failed".into());
+    }
 
     let start_time = time();
     let proof_bytes = generate_proof_internal(&input)?;
@@ -179,6 +191,9 @@ pub fn generate_proof(input: TokenOwnershipInput) -> Result<u64, String> {
         public_inputs,
         expiry,
         owner,
+        input.token_canister,
+        input.token_standard,
+        input.balance,
     );
 
     let proof_id = time();

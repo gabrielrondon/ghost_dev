@@ -1,7 +1,11 @@
+type TokenStandard = variant { ICRC1; ICRC2; DIP20; EXT; };
+
 type TokenOwnershipInput = record {
   balance: nat64;
   min_range: nat64;
   max_range: nat64;
+  token_canister: principal;
+  token_standard: TokenStandard;
 };
 
 type Result = variant {

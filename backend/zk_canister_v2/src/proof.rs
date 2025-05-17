@@ -35,6 +35,8 @@ pub struct TokenOwnershipInput {
     pub balance: u64,
     pub min_range: u64,
     pub max_range: u64,
+    pub token_canister: Principal,
+    pub token_standard: TokenStandard,
 }
 
 impl TokenOwnershipInput {
