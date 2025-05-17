@@ -35,6 +35,8 @@ pub struct TokenOwnershipInput {
     pub balance: u64,
     pub min_range: u64,
     pub max_range: u64,
+    pub token_canister: Principal,
+    pub token_standard: TokenStandard,
 }
 
 impl TokenOwnershipInput {
@@ -388,6 +390,7 @@ mod tests {
         assert_eq!(inputs[0], Fr::from(input.balance));
         assert_eq!(inputs[1], Fr::from(input.min_range));
         assert_eq!(inputs[2], Fr::from(input.max_range));
+
     }
 
     #[test]
@@ -469,12 +472,12 @@ mod tests {
         };
 
         // Test insert and get
-        storage.insert(1, proof.clone(), owner);
+        storage.insert(1, proof.clone());
         assert_eq!(storage.count_for_principal(&owner), 1);
         assert!(storage.get(1).is_some());
 
         // Test remove
-        let removed = storage.remove(1, owner);
+        let removed = storage.remove(1);
         assert!(removed.is_some());
         assert_eq!(storage.count_for_principal(&owner), 0);
         assert!(storage.get(1).is_none());
@@ -508,7 +511,7 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_proof() {
+    fn test_invalid_proof_mismatch() {
         // Test parameters
         let k = 4;
         let input = TokenOwnershipInput {

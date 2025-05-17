@@ -22,8 +22,9 @@ use serde::Serialize;
 use crate::{
     circuits::TokenRangeCircuit,
     metrics::{CanisterMetrics, get_metrics},
-    proof::{TokenOwnershipInput, generate_proof_internal, verify_proof_internal},
+    proof::{TokenOwnershipInput, generate_proof_internal, verify_proof_internal, TokenStandard},
     storage::{ProofStorage, StoredProof},
+    token_verification::verify_token_balance,
 };
 
 mod circuits;
@@ -39,7 +40,14 @@ const MIN_CYCLES: u64 = 1_000_000_000_000; // 1T cycles
 const PROOF_COST: u64 = 100_000_000_000; // 100B cycles
 const MAX_PROOFS_PER_PRINCIPAL: usize = 10;
 const K: u32 = 8;
-const PROOF_EXPIRY_SECONDS: u64 = 24 * 60 * 60; // 24 hours
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static PROOF_EXPIRY_SECONDS: AtomicU64 = AtomicU64::new(24 * 60 * 60); // 24 hours
+
+/// Adjust proof expiry duration in seconds (primarily for testing).
+pub fn set_proof_expiry_seconds(seconds: u64) {
+    PROOF_EXPIRY_SECONDS.store(seconds, Ordering::Relaxed);
+}
 
 // Add custom random number generator for IC
 use getrandom::register_custom_getrandom;
@@ -149,15 +157,27 @@ pub fn init() {
 }
 
 #[update]
-pub fn generate_proof(input: TokenOwnershipInput) -> Result<u64, String> {
+pub async fn generate_proof(input: TokenOwnershipInput) -> Result<u64, String> {
     input.validate()?;
+
+    let owner = caller();
+    let verified = verify_token_balance(
+        input.token_canister,
+        owner,
+        input.balance,
+        &input.token_standard,
+    ).await?;
+    if !verified {
+        return Err("Balance verification failed".into());
+    }
 
     let start_time = time();
     let proof_bytes = generate_proof_internal(&input)?;
     let end_time = time();
     let duration_ms = (end_time - start_time) / 1_000_000; // Convert to milliseconds
 
-    let expiry = time() + PROOF_EXPIRY_SECONDS * 1_000_000_000; // Convert to nanoseconds
+    let expiry_seconds = PROOF_EXPIRY_SECONDS.load(Ordering::Relaxed);
+    let expiry = time() + expiry_seconds * 1_000_000_000; // Convert to nanoseconds
     let owner = caller();
 
     // Convert public inputs to hex strings
@@ -171,6 +191,9 @@ pub fn generate_proof(input: TokenOwnershipInput) -> Result<u64, String> {
         public_inputs,
         expiry,
         owner,
+        input.token_canister,
+        input.token_standard,
+        input.balance,
     );
 
     let proof_id = time();

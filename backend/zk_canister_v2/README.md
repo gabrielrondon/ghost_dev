@@ -45,6 +45,8 @@ const input = {
   balance: 100n,
   min_range: 0n,
   max_range: 1000n,
+  token_canister: Principal.fromText("aaaaa-aa"),
+  token_standard: { ICRC1: null },
 };
 
 const proofId = await actor.generate_proof(input);
@@ -70,6 +72,8 @@ type TokenOwnershipInput = record {
     balance: nat64;
     min_range: nat64;
     max_range: nat64;
+    token_canister: principal;
+    token_standard: variant { ICRC1; ICRC2; DIP20; EXT };
 };
 
 generate_proof: (TokenOwnershipInput) -> (Result<nat64, CanisterError>);
@@ -85,7 +89,7 @@ verify_proof: (nat64) -> (Result<bool, CanisterError>);
 type HealthStatus = record {
     status: text;
     cycles: nat64;
-    memory_bytes: nat64;
+    memory_mb: float64;
     timestamp: nat64;
     total_proofs: nat64;
     active_proofs: nat64;

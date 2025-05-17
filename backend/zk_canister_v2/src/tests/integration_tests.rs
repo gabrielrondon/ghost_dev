@@ -108,7 +108,9 @@ async fn test_proof_expiration() {
         proof_bytes: vec![],
         public_inputs: vec![],
         owner: Principal::anonymous(),
-        timestamp: 0,
+        token_canister: Principal::anonymous(),
+        token_standard: TokenStandard::ICRC1,
+        verified_balance: 0,
         expiry: 0,
     });
 

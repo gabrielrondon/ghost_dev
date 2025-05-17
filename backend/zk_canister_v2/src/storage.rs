@@ -8,6 +8,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use candid::{Decode, Encode};
 use halo2_proofs::halo2curves::bn256::Fr;
+use crate::proof::TokenStandard;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
@@ -270,15 +271,29 @@ pub struct StoredProof {
     pub public_inputs: Vec<String>,
     pub expiry: u64,
     pub owner: Principal,
+    pub token_canister: Principal,
+    pub token_standard: TokenStandard,
+    pub verified_balance: u64,
 }
 
 impl StoredProof {
-    pub fn new(proof_bytes: Vec<u8>, public_inputs: Vec<String>, expiry: u64, owner: Principal) -> Self {
+    pub fn new(
+        proof_bytes: Vec<u8>,
+        public_inputs: Vec<String>,
+        expiry: u64,
+        owner: Principal,
+        token_canister: Principal,
+        token_standard: TokenStandard,
+        verified_balance: u64,
+    ) -> Self {
         Self {
             proof_bytes,
             public_inputs,
             expiry,
             owner,
+            token_canister,
+            token_standard,
+            verified_balance,
         }
     }
 
