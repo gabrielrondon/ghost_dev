@@ -89,7 +89,7 @@ verify_proof: (nat64) -> (Result<bool, CanisterError>);
 type HealthStatus = record {
     status: text;
     cycles: nat64;
-    memory_bytes: nat64;
+    memory_mb: float64;
     timestamp: nat64;
     total_proofs: nat64;
     active_proofs: nat64;
