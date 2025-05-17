@@ -6,6 +6,7 @@ use zk_canister_v2::{
     init,
     generate_proof,
     verify_proof,
+    set_proof_expiry_seconds,
 };
 
 const LOCAL_REPLICA_URL: &str = "http://localhost:4943";
@@ -56,6 +57,9 @@ async fn test_invalid_range() {
 
 #[tokio::test]
 async fn test_proof_expiry() {
+    // Set expiry to 0 so proofs expire immediately
+    set_proof_expiry_seconds(0);
+
     let input = TokenOwnershipInput {
         balance: 1000,
         min_range: 0,
@@ -63,12 +67,12 @@ async fn test_proof_expiry() {
     };
 
     let proof_id = generate_proof(input).expect("Failed to generate proof");
-    
-    // Wait for proof to expire (in a real test, you'd mock the time)
-    std::thread::sleep(std::time::Duration::from_secs(301)); // 5 minutes + 1 second
-    
+
     let result = verify_proof(proof_id);
     assert!(matches!(result, Err(CanisterError::ProofExpired)));
+
+    // Restore default expiry for other tests
+    set_proof_expiry_seconds(24 * 60 * 60);
 }
 
 #[tokio::test]
