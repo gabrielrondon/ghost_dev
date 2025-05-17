@@ -17,8 +17,20 @@ export type Result = { 'Ok' : ProofId } |
   { 'Err' : string };
 export type VerifyResult = { 'Ok' : boolean } |
   { 'Err' : string };
+export type TokenStandard =
+  | { 'ICRC1' : null }
+  | { 'ICRC2' : null }
+  | { 'DIP20' : null }
+  | { 'EXT' : null };
+export interface TokenOwnershipInput {
+  'balance' : bigint,
+  'min_range' : bigint,
+  'max_range' : bigint,
+  'token_canister' : Principal,
+  'token_standard' : TokenStandard,
+}
 export interface _SERVICE {
-  'generate_proof' : ActorMethod<[bigint, bigint, bigint], Result>,
+  'generate_proof' : ActorMethod<[TokenOwnershipInput], Result>,
   'get_metrics' : ActorMethod<[], Metrics>,
   'verify_proof' : ActorMethod<[ProofId], VerifyResult>,
 }
