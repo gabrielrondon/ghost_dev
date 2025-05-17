@@ -383,9 +383,14 @@ mod tests {
             min_range: 0,
             max_range: 200,
         };
+
         let inputs = create_public_inputs(&input).expect("Failed to create public inputs");
+
         assert_eq!(inputs.len(), 3);
         assert_eq!(inputs[0], Fr::from(input.balance));
+        assert_eq!(inputs[1], Fr::from(input.min_range));
+        assert_eq!(inputs[2], Fr::from(input.max_range));
+
     }
 
     #[test]
@@ -423,7 +428,7 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_proof() {
+    fn test_invalid_proof_mismatched_input() {
         let k = 4;
         let mut rng = StdRng::from_entropy();
         let params = ParamsKZG::<Bn256>::setup(k, &mut rng);
