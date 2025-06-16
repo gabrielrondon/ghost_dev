@@ -8,6 +8,9 @@ use ic_stable_structures::{StableBTreeMap, Storable, BoundedStorable, memory_man
 use serde_json::json;
 use serde_json::to_vec;
 use uuid::Uuid;
+use sha2::{Sha256, Digest};
+use secp256k1::{Secp256k1, Message, PublicKey, Signature};
+use tiny_keccak::Keccak;
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
 struct TaskConfig {
@@ -39,6 +42,8 @@ struct WalletVerificationRequest {
     wallet_address: String,
     nft_contract_address: Option<String>,
     chain_id: String,
+    public_key: String,
+    signature: String,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
@@ -54,6 +59,8 @@ struct TokenProofRequest {
     token_id: String,
     min_balance: u64,
     wallet_address: String,
+    public_key: String,
+    signature: String,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
@@ -97,6 +104,48 @@ impl Storable for StorableString {
 impl BoundedStorable for StorableString {
     const MAX_SIZE: u32 = 256;
     const IS_FIXED_SIZE: bool = false;
+}
+
+fn verify_wallet_signature(message: &str, signature_hex: &str, public_key_hex: &str) -> bool {
+    let secp = Secp256k1::verification_only();
+
+    let sig_bytes = match hex::decode(signature_hex) {
+        Ok(b) => b,
+        Err(_) => return false,
+    };
+    let signature = match Signature::from_compact(&sig_bytes) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    let pk_bytes = match hex::decode(public_key_hex) {
+        Ok(b) => b,
+        Err(_) => return false,
+    };
+    let public_key = match PublicKey::from_slice(&pk_bytes) {
+        Ok(pk) => pk,
+        Err(_) => return false,
+    };
+
+    let mut hasher = Sha256::new();
+    hasher.update(message.as_bytes());
+    let hash = hasher.finalize();
+    let msg = match Message::from_slice(&hash) {
+        Ok(m) => m,
+        Err(_) => return false,
+    };
+
+    secp.verify_ecdsa(&msg, &signature, &public_key).is_ok()
+}
+
+fn public_key_to_address(pk_bytes: &[u8]) -> String {
+    let pk = if pk_bytes.len() == 65 { &pk_bytes[1..] } else { pk_bytes };
+    let mut keccak = Keccak::v256();
+    let mut out = [0u8; 32];
+    keccak.update(pk);
+    keccak.finalize(&mut out);
+    let addr = &out[12..];
+    format!("0x{}", hex::encode(addr))
 }
 
 thread_local! {
@@ -324,13 +373,18 @@ async fn execute_on_eth_btc(reference_id: &str) {
 fn verify_nft_ownership(request: WalletVerificationRequest) -> VerificationResult {
     let proof_id = Uuid::new_v4().to_string();
     let anonymous_reference = Uuid::new_v4().to_string();
-    
+
     // In a real implementation, this would make external calls to verify NFT ownership
     // For now, we'll simulate verification based on the wallet address
     // This is a placeholder - in production, you would integrate with actual blockchain APIs
-    
-    // Simple simulation: if wallet address starts with "0x", consider it verified
-    let is_verified = request.wallet_address.starts_with("0x");
+    let message = format!("{}:{}", request.wallet_address, request.chain_id);
+    let valid_sig = verify_wallet_signature(&message, &request.signature, &request.public_key);
+    let derived = public_key_to_address(&hex::decode(&request.public_key).unwrap_or_default());
+
+    let mut is_verified = valid_sig && derived.to_lowercase() == request.wallet_address.to_lowercase();
+    if is_verified {
+        is_verified = request.wallet_address.starts_with("0x");
+    }
     
     let result = VerificationResult {
         is_verified,
@@ -377,6 +431,16 @@ async fn generate_token_proof(request: TokenProofRequest) -> Result<TokenProofRe
     // Validate request
     if request.min_balance == 0 {
         return Err("Minimum balance must be greater than 0".to_string());
+    }
+
+    let message = format!("{}:{}:{}", request.wallet_address, request.token_id, request.min_balance);
+    if !verify_wallet_signature(&message, &request.signature, &request.public_key) {
+        return Err("Invalid signature".to_string());
+    }
+
+    let derived = public_key_to_address(&hex::decode(&request.public_key).map_err(|_| "Invalid public key".to_string())?);
+    if derived.to_lowercase() != request.wallet_address.to_lowercase() {
+        return Err("Public key does not match wallet address".to_string());
     }
 
     // Get current merkle root
