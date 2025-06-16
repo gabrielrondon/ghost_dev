@@ -18,6 +18,8 @@ type WalletVerificationRequest = record {
     wallet_address: text;
     nft_contract_address: opt text;
     chain_id: text;
+    public_key: text;
+    signature: text;
 };
 
 type VerificationResult = record {
@@ -31,6 +33,8 @@ type TokenProofRequest = record {
     token_id: text;
     min_balance: nat64;
     wallet_address: text;
+    public_key: text;
+    signature: text;
 };
 
 type TokenProofResult = record {
